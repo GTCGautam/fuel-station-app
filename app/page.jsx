@@ -23,17 +23,18 @@ const TABS = [
   { key: "sales", label: "Sales" },
   { key: "credit", label: "Credit" },
   { key: "stock", label: "Stock" },
+  { key: "ledger", label: "Ledger" }, // <-- NEW TAB
   { key: "report", label: "Report" },
-  { key: "analytics", label: "Analytics" },
+  { key: "analytics", label: "Stats" }, // Renamed slightly to fit mobile screen
   { key: "admin", label: "Admin" },
 ];
 
-// Note: Ensure you replace this array with your full 150 customer list in production!
 const CREDITORS_INITIAL = [
   { "account_number": "21192539001", "name": "100 DIAL", "id": "21192539001", "opening_balance": 764.75 },
   { "account_number": "21192539026", "name": "AADINATH TRANSPORT", "id": "21192539026", "opening_balance": 0 },
   { "account_number": "21192539011", "name": "ABHAI JI JOSHI", "id": "21192539011", "opening_balance": 438 },
   { "account_number": "21192539018", "name": "ABHAY JI", "id": "21192539018", "opening_balance": 453202.22 }
+  // Paste your remaining creditors here!
 ];
 
 const inr = (n) => (Number.isFinite(n) ? n : 0).toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
@@ -209,7 +210,6 @@ function CreditTab({ day, update, currentRates, balances, creditors, isReadOnly 
   const [mode, setMode] = useState("give");
   const [customer, setCustomer] = useState(null);
   
-  // FIX 1: Robust Auto-Rate Fetching Logic
   const [fuelType, setFuelType] = useState("diesel");
   const [isManualRate, setIsManualRate] = useState(false);
   const [manualRate, setManualRate] = useState(0);
@@ -312,6 +312,123 @@ function StockTab({ day, update, ledgerRow, hasPreviousDay, isReadOnly }) {
   );
 }
 
+// ============ NEW: Customer Ledger Tab ============
+function LedgerTab({ days, creditors }) {
+  const [customer, setCustomer] = useState(null);
+  const [filter, setFilter] = useState("30");
+  const [showDetails, setShowDetails] = useState(false);
+
+  const allDates = Object.keys(days).sort();
+  
+  // Calculate cut-off date based on filter
+  const cutoffDate = useMemo(() => {
+    if (filter === "all") return "2000-01-01";
+    const d = new Date();
+    d.setDate(d.getDate() - parseInt(filter));
+    return d.toISOString().slice(0, 10);
+  }, [filter]);
+
+  // Aggregate all transactions for the selected customer chronologically
+  const transactions = useMemo(() => {
+    if (!customer) return [];
+    const txs = [];
+    allDates.forEach(date => {
+      const d = days[date];
+      (d.creditEntries || []).forEach(e => {
+        if (e.accountNumber === customer.account_number) txs.push({ date, type: 'credit', ...e });
+      });
+      (d.paymentEntries || []).forEach(e => {
+        if (e.accountNumber === customer.account_number) txs.push({ date, type: 'payment', ...e });
+      });
+    });
+    return txs; 
+  }, [customer, days, allDates]);
+
+  const summary = useMemo(() => {
+    if (!customer) return null;
+    let openingBal = customer.opening_balance || 0;
+    let creditGiven = 0;
+    let paymentsRecv = 0;
+
+    transactions.forEach(tx => {
+      if (tx.date < cutoffDate) {
+        if (tx.type === 'credit') openingBal += tx.amount;
+        if (tx.type === 'payment') openingBal -= tx.amount;
+      } else {
+        if (tx.type === 'credit') creditGiven += tx.amount;
+        if (tx.type === 'payment') paymentsRecv += tx.amount;
+      }
+    });
+
+    const closingBal = openingBal + creditGiven - paymentsRecv;
+    return { openingBal, creditGiven, paymentsRecv, closingBal };
+  }, [customer, transactions, cutoffDate]);
+
+  const visibleTxs = useMemo(() => transactions.filter(tx => tx.date >= cutoffDate).reverse(), [transactions, cutoffDate]);
+
+  return (
+    <div className="space-y-4">
+      <Card title="Customer Account Search">
+         <CustomerPicker value={customer} onChange={(c) => { setCustomer(c); setShowDetails(false); }} creditors={creditors} />
+      </Card>
+
+      {customer && (
+        <>
+          <div className="flex p-1 bg-slate-200 rounded-lg">
+            <button onClick={() => setFilter("7")} className={`flex-1 rounded-md py-2 text-xs font-bold ${filter === "7" ? "bg-white shadow" : "text-slate-600"}`}>Last 7 Days</button>
+            <button onClick={() => setFilter("30")} className={`flex-1 rounded-md py-2 text-xs font-bold ${filter === "30" ? "bg-white shadow" : "text-slate-600"}`}>Last 30 Days</button>
+            <button onClick={() => setFilter("all")} className={`flex-1 rounded-md py-2 text-xs font-bold ${filter === "all" ? "bg-white shadow" : "text-slate-600"}`}>All Time</button>
+          </div>
+
+          <Card title="Period Summary">
+             <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="bg-slate-50 p-2 rounded border border-slate-100">
+                   <p className="text-[10px] uppercase font-bold text-slate-500">Opening Bal</p>
+                   <p className="font-bold text-slate-900">{inr(summary.openingBal)}</p>
+                </div>
+                <div className="bg-red-50 p-2 rounded border border-red-100">
+                   <p className="text-[10px] uppercase font-bold text-red-700">Credit Given</p>
+                   <p className="font-bold text-slate-900">{inr(summary.creditGiven)}</p>
+                </div>
+                <div className="bg-emerald-50 p-2 rounded border border-emerald-100">
+                   <p className="text-[10px] uppercase font-bold text-emerald-700">Payment Recv.</p>
+                   <p className="font-bold text-slate-900">{inr(summary.paymentsRecv)}</p>
+                </div>
+                <div className="bg-slate-900 p-2 rounded">
+                   <p className="text-[10px] uppercase font-bold text-slate-300">Net Due (Closing)</p>
+                   <p className="font-bold text-white">{inr(summary.closingBal)}</p>
+                </div>
+             </div>
+             <button onClick={() => setShowDetails(!showDetails)} className="w-full mt-3 border border-slate-300 text-slate-700 font-bold py-2 rounded text-xs">
+                {showDetails ? "Hide Details" : "View Day-Wise Details"}
+             </button>
+          </Card>
+
+          {showDetails && (
+             <Card title="Transaction History">
+                {visibleTxs.length === 0 ? <p className="text-xs text-slate-500 text-center py-4">No transactions found in this period.</p> : (
+                  <ul className="divide-y text-xs">
+                    {visibleTxs.map((tx, idx) => (
+                      <li key={idx} className="py-2 flex justify-between items-center">
+                         <div>
+                            <p className="font-bold text-slate-900">{tx.date}</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5">{tx.type === 'credit' ? `${FUEL_LABEL[tx.fuelType]} (${tx.quantity}L @ ₹${tx.rate})` : `Payment via ${tx.source}`}</p>
+                         </div>
+                         <span className={`font-black ${tx.type === 'credit' ? 'text-red-600' : 'text-emerald-600'}`}>
+                           {tx.type === 'credit' ? '+' : '-'}{inr(tx.amount)}
+                         </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+             </Card>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ============ Report Tab ============
 function ReportTab({ currentDate, day, ledgerRow }) {
   const totalRevenue = FUEL_KEYS.reduce((s, k) => s + day.fuel[k].volume * day.fuel[k].rate, 0);
@@ -359,7 +476,6 @@ function ReportTab({ currentDate, day, ledgerRow }) {
                  {day.creditEntries.map(e => <tr key={e.id} className="border-b"><td className="p-1 font-bold text-slate-900">{e.customerName}</td><td className="p-1 text-red-700 font-bold">Given</td><td className="p-1 text-right font-black text-slate-900">{inr(e.amount)}</td></tr>)}
                  {day.paymentEntries.map(e => <tr key={e.id} className="border-b"><td className="p-1 font-bold text-slate-900">{e.customerName}</td><td className="p-1 text-emerald-700 font-bold">Received</td><td className="p-1 text-right font-black text-slate-900">{inr(e.amount)}</td></tr>)}
              </tbody></table>
-             {/* FIX 2: Explicit Totals added to report */}
              <div className="mt-3 flex justify-between font-black text-xs">
                <span className="bg-slate-100 px-2 py-1 rounded">Total Credit Given: {inr(creditGivenToday)}</span>
                <span className="bg-slate-100 px-2 py-1 rounded">Total Received: {inr(paymentsReceivedToday)}</span>
@@ -372,30 +488,27 @@ function ReportTab({ currentDate, day, ledgerRow }) {
   );
 }
 
-// ============ Analytics Tab (Enhanced with Filters & Graphs) ============
+// ============ Analytics Tab ============
 function AnalyticsTab({ days, creditors, balances }) {
   const [filter, setFilter] = useState("7");
   
-  // Calculate date range
   const filteredDates = useMemo(() => {
      const sorted = Object.keys(days).sort();
      if (filter === "all") return sorted;
      return sorted.slice(-Number(filter));
   }, [days, filter]);
 
-  // Aggregate Data for Graph
   const chartData = useMemo(() => {
      let maxRev = 0;
      const data = filteredDates.map(date => {
         const d = days[date];
         const rev = FUEL_KEYS.reduce((sum, k) => sum + d.fuel[k].volume * d.fuel[k].rate, 0);
         if (rev > maxRev) maxRev = rev;
-        return { date: date.slice(5), rev }; // display MM-DD
+        return { date: date.slice(5), rev };
      });
      return data.map(d => ({ ...d, height: maxRev > 0 ? (d.rev / maxRev) * 100 : 0 }));
   }, [days, filteredDates]);
 
-  // Totals for filtered period
   const periodTotals = useMemo(() => {
      let rev = 0, exp = 0;
      filteredDates.forEach(date => {
@@ -425,7 +538,6 @@ function AnalyticsTab({ days, creditors, balances }) {
                <div key={i} className="flex-1 flex flex-col items-center justify-end h-full group relative">
                   <div style={{height: `${Math.max(d.height, 2)}%`}} className="w-full bg-slate-900 rounded-t hover:bg-emerald-600 transition-colors"></div>
                   <span className="text-[8px] text-slate-500 font-bold mt-1">{d.date}</span>
-                  {/* Tooltip */}
                   <div className="absolute -top-6 bg-black text-white text-[10px] px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap">{inr(d.rev)}</div>
                </div>
             ))}
@@ -442,7 +554,7 @@ function AnalyticsTab({ days, creditors, balances }) {
   );
 }
 
-// ============ Admin Tab (Fully Restored as per Requirement) ============
+// ============ Admin Tab ============
 function AdminTab({ days, currentRates, setRate, creditors, setCreditors, expenseCategories, setExpenseCategories, creditSources, setCreditSources }) {
   const [unlocked, setUnlocked] = useState(false);
   const [passcode, setPasscode] = useState("");
@@ -452,7 +564,7 @@ function AdminTab({ days, currentRates, setRate, creditors, setCreditors, expens
   const [newCreditorName, setNewCreditorName] = useState("");
   const [newCreditorBalance, setNewCreditorBalance] = useState("");
   const [bulkImportText, setBulkImportText] = useState("");
-  const [importMode, setImportMode] = useState("add"); // 'add' | 'replace'
+  const [importMode, setImportMode] = useState("add"); 
 
   if (!unlocked) {
     return (
@@ -556,7 +668,6 @@ export default function App() {
   const [expenseCategories, setExpenseCategories] = useState([]);
   const [creditSources, setCreditSources] = useState([]);
   
-  // Security & Touch Swipe State
   const [pastDateUnlocked, setPastDateUnlocked] = useState(false);
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
@@ -595,7 +706,6 @@ export default function App() {
         const newDays = { ...prev, [currentDate]: emptyDay(currentRates) };
         updateDB('days', newDays); return newDays;
       });
-      // Re-lock past dates when date picker changes
       if (currentDate !== todayStr()) setPastDateUnlocked(false);
     }
   }, [currentDate, currentRates, isDbLoading]);
@@ -603,17 +713,16 @@ export default function App() {
   const update = (patch) => { setDays(prev => { const next = { ...prev, [currentDate]: { ...(prev[currentDate] || emptyDay(currentRates)), ...patch } }; updateDB('days', next); return next; }); };
   const handleSetRate = (fuelKey, val) => { setCurrentRates(prev => { const next = { ...prev, [fuelKey]: val }; updateDB('current_rates', next); return next; }); };
 
-  // FIX 4: Swipe Handlers (Swiping left and right across tabs)
   const onTouchStartEvent = (e) => { setTouchEnd(null); setTouchStart(e.targetTouches[0].clientX); };
   const onTouchMoveEvent = (e) => setTouchEnd(e.targetTouches[0].clientX);
   const onTouchEndEvent = () => {
     if (!touchStart || !touchEnd) return;
     const distance = touchStart - touchEnd;
-    if (distance > 60) { // Swiped left
+    if (distance > 60) {
       const idx = TABS.findIndex(t => t.key === tab);
       if (idx < TABS.length - 1) setTab(TABS[idx + 1].key);
     }
-    if (distance < -60) { // Swiped right
+    if (distance < -60) {
       const idx = TABS.findIndex(t => t.key === tab);
       if (idx > 0) setTab(TABS[idx - 1].key);
     }
@@ -636,7 +745,6 @@ export default function App() {
 
   if (isDbLoading) return <div className="flex h-screen items-center justify-center bg-slate-50"><p className="text-slate-500 font-bold animate-pulse">Syncing with Cloud...</p></div>;
 
-  // FIX 3: Read-Only check applies to all inputs dynamically
   const isPastDate = currentDate !== todayStr();
   const isReadOnly = isPastDate && !pastDateUnlocked;
 
@@ -653,10 +761,8 @@ export default function App() {
         </div>
       </header>
 
-      {/* Touch container for swipe functionality */}
       <main onTouchStart={onTouchStartEvent} onTouchMove={onTouchMoveEvent} onTouchEnd={onTouchEndEvent} className="mx-auto max-w-md p-3 min-h-[70vh]">
         
-        {/* Visual Read-Only Banner with Auth Button */}
         {isPastDate && ["sales", "credit", "stock"].includes(tab) && (
            <div className="bg-amber-100 text-amber-900 p-2 rounded-lg text-[10px] font-bold flex justify-between items-center mb-3 shadow-sm print:hidden">
               <span>VIEWING PAST DATE (READ-ONLY)</span>
@@ -671,13 +777,14 @@ export default function App() {
         {tab === "sales" && <SalesTab day={day} update={update} currentRates={currentRates} setRate={handleSetRate} creditGivenToday={day.creditEntries.reduce((s,e)=>s+e.amount,0)} paymentsReceivedToday={day.paymentEntries.reduce((s,e)=>s+e.amount,0)} onGoToCredit={() => setTab("credit")} isReadOnly={isReadOnly} />}
         {tab === "credit" && <CreditTab day={day} update={update} currentRates={currentRates} balances={balances} creditors={creditors} isReadOnly={isReadOnly} />}
         {tab === "stock" && <StockTab day={day} update={update} ledgerRow={ledgerRow} hasPreviousDay={hasPreviousDay} isReadOnly={isReadOnly} />}
-        {tab === "report" && <ReportTab currentDate={currentDate} day={day} ledgerRow={ledgerRow} balances={balances} creditors={creditors} />}
+        {tab === "ledger" && <LedgerTab days={days} creditors={creditors} />}
+        {tab === "report" && <ReportTab currentDate={currentDate} day={day} ledgerRow={ledgerRow} />}
         {tab === "analytics" && <AnalyticsTab days={days} creditors={creditors} balances={balances} />}
         {tab === "admin" && <AdminTab days={days} currentRates={currentRates} setRate={handleSetRate} creditors={creditors} setCreditors={c => { setCreditors(c); updateDB('creditors', c); }} expenseCategories={expenseCategories} setExpenseCategories={c => { setExpenseCategories(c); updateDB('expense_categories', c); }} creditSources={creditSources} setCreditSources={c => { setCreditSources(c); updateDB('credit_sources', c); }} />}
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white shadow-[0_-10px_10px_-5px_rgba(0,0,0,0.05)] print:hidden">
-        <div className="mx-auto grid max-w-md grid-cols-6 text-[11px]">
+        <div className="mx-auto grid max-w-md grid-cols-7 text-[9px]">
           {TABS.map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)} className={`py-4 text-center font-bold transition-colors ${tab === t.key ? "text-slate-900 border-t-2 border-slate-900 bg-slate-50" : "text-slate-400 hover:text-slate-600"}`}>{t.label}</button>
           ))}
