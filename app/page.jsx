@@ -28,12 +28,12 @@ const TABS = [
   { key: "admin", label: "Admin" },
 ];
 
+// Note: Ensure you replace this array with your full 150 customer list in production!
 const CREDITORS_INITIAL = [
   { "account_number": "21192539001", "name": "100 DIAL", "id": "21192539001", "opening_balance": 764.75 },
   { "account_number": "21192539026", "name": "AADINATH TRANSPORT", "id": "21192539026", "opening_balance": 0 },
   { "account_number": "21192539011", "name": "ABHAI JI JOSHI", "id": "21192539011", "opening_balance": 438 },
   { "account_number": "21192539018", "name": "ABHAY JI", "id": "21192539018", "opening_balance": 453202.22 }
-  // NOTE: Paste your remaining 146 creditors back in here!
 ];
 
 const inr = (n) => (Number.isFinite(n) ? n : 0).toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
@@ -74,7 +74,7 @@ function computeStockLedger(days) {
   return ledger;
 }
 
-// ============ Shared UI ============
+// ============ Shared UI Components ============
 function NumberField({ label, value, onChange, prefix, suffix, disabled }) {
   return (
     <label className="block w-full">
@@ -134,6 +134,7 @@ function SalesTab({ day, update, currentRates, setRate, creditGivenToday, paymen
   const totalExpenses = day.expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
   const accountedFor = totalCollected + creditGivenToday + totalExpenses;
   const diff = Math.round((totalRevenue - accountedFor) * 100) / 100;
+  const balanced = Math.abs(diff) < 1;
 
   return (
     <div className="space-y-4">
@@ -193,6 +194,7 @@ function SalesTab({ day, update, currentRates, setRate, creditGivenToday, paymen
         </div>
         {!isReadOnly && <button onClick={() => update({ expenses: [...day.expenses, { id: Date.now(), category: (typeof window !== "undefined" && window.__expenseCategories) ? window.__expenseCategories[0] : "Misc", amount: 0, remarks: "" }] })} className="mt-2 w-full rounded-lg border-2 border-dashed border-slate-300 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50">+ Add Expense</button>}
       </Card>
+      
       <section className={`rounded-xl border p-3 shadow-sm ${Math.abs(diff) < 1 ? "border-emerald-300 bg-emerald-50" : "border-amber-300 bg-amber-50"}`}>
         <div className="flex justify-between text-xs font-bold text-slate-600"><span>Colls + Credit + Exp</span><span>{inr(accountedFor)}</span></div>
         <div className="mt-1 flex justify-between text-xs font-bold text-slate-600"><span>Total Revenue</span><span>{inr(totalRevenue)}</span></div>
@@ -206,11 +208,12 @@ function SalesTab({ day, update, currentRates, setRate, creditGivenToday, paymen
 function CreditTab({ day, update, currentRates, balances, creditors, isReadOnly }) {
   const [mode, setMode] = useState("give");
   const [customer, setCustomer] = useState(null);
-  const [fuelType, setFuelType] = useState("diesel");
   
-  // Custom rate override (solves the autofetcher bug)
-  const [customRate, setCustomRate] = useState(null);
-  const rate = customRate !== null ? customRate : currentRates[fuelType];
+  // FIX 1: Robust Auto-Rate Fetching Logic
+  const [fuelType, setFuelType] = useState("diesel");
+  const [isManualRate, setIsManualRate] = useState(false);
+  const [manualRate, setManualRate] = useState(0);
+  const rate = isManualRate ? manualRate : currentRates[fuelType];
   
   const [quantity, setQuantity] = useState(0);
   const [remarks, setRemarks] = useState("");
@@ -220,7 +223,7 @@ function CreditTab({ day, update, currentRates, balances, creditors, isReadOnly 
   const [paySource, setPaySource] = useState(typeof window !== "undefined" && window.__creditSources ? window.__creditSources[0] : "Cash");
   const [payRemarks, setPayRemarks] = useState("");
 
-  const addCreditEntry = () => { update({ creditEntries: [{ id: Date.now(), customerName: customer.name, accountNumber: customer.account_number, fuelType, quantity, rate, amount: quantity * rate, remarks }, ...day.creditEntries] }); setCustomer(null); setQuantity(0); setRemarks(""); setCustomRate(null); };
+  const addCreditEntry = () => { update({ creditEntries: [{ id: Date.now(), customerName: customer.name, accountNumber: customer.account_number, fuelType, quantity, rate, amount: quantity * rate, remarks }, ...day.creditEntries] }); setCustomer(null); setQuantity(0); setRemarks(""); setIsManualRate(false); };
   const addPayment = () => { update({ paymentEntries: [{ id: Date.now(), customerName: payCustomer.name, accountNumber: payCustomer.account_number, amount: payAmount, source: paySource, remarks: payRemarks }, ...day.paymentEntries] }); setPayCustomer(null); setPayAmount(0); setPayRemarks(""); };
 
   return (
@@ -235,11 +238,11 @@ function CreditTab({ day, update, currentRates, balances, creditors, isReadOnly 
           <CustomerPicker disabled={isReadOnly} value={customer} onChange={setCustomer} creditors={creditors} />
           {customer && <p className="mt-1 text-xs font-bold text-sky-700">Balance: {inr(balances[customer.account_number] ?? 0)}</p>}
           <div className="mt-3 flex gap-2">
-             {FUEL_KEYS.map(k => <button key={k} disabled={isReadOnly} onClick={() => { setFuelType(k); setCustomRate(null); }} className={`flex-1 py-1.5 text-xs font-bold rounded border disabled:opacity-50 ${fuelType === k ? 'bg-slate-900 text-white border-slate-900' : 'text-slate-600'}`}>{FUEL_LABEL[k]}</button>)}
+             {FUEL_KEYS.map(k => <button key={k} disabled={isReadOnly} onClick={() => { setFuelType(k); setIsManualRate(false); }} className={`flex-1 py-1.5 text-xs font-bold rounded border disabled:opacity-50 ${fuelType === k ? 'bg-slate-900 text-white border-slate-900' : 'text-slate-600'}`}>{FUEL_LABEL[k]}</button>)}
           </div>
           <div className="mt-3 flex gap-2">
             <div className="flex-1"><NumberField disabled={isReadOnly} label="Qty" value={quantity} onChange={setQuantity} /></div>
-            <div className="flex-1"><NumberField disabled={isReadOnly} label="Rate" value={rate} onChange={setCustomRate} /></div>
+            <div className="flex-1"><NumberField disabled={isReadOnly} label="Rate" value={rate} onChange={(v) => { setManualRate(v); setIsManualRate(true); }} /></div>
           </div>
           <input disabled={isReadOnly} type="text" value={remarks} onChange={e => setRemarks(e.target.value)} placeholder="Remarks" className="mt-3 w-full border rounded p-2 text-sm font-semibold outline-none focus:border-slate-900 disabled:bg-slate-100 disabled:opacity-70" />
           {!isReadOnly && <button onClick={addCreditEntry} disabled={!customer || quantity <= 0} className="mt-3 w-full bg-slate-900 text-white font-bold py-3 rounded-lg disabled:opacity-50">Save Entry: {inr(quantity * rate)}</button>}
@@ -351,18 +354,16 @@ function ReportTab({ currentDate, day, ledgerRow }) {
 
         {(day.creditEntries.length > 0 || day.paymentEntries.length > 0) && (
           <div className="mb-4 print:break-inside-avoid">
-             <div className="flex justify-between items-end border-b-2 border-slate-900 mb-2 pb-1">
-                 <h2 className="font-black text-sm text-slate-900 inline-block">Credit & Payments Log</h2>
-                 <span className="text-xs font-bold text-slate-600">Net: {inr(creditGivenToday - paymentsReceivedToday)}</span>
-             </div>
+             <h2 className="font-black text-sm mb-1 text-slate-900 border-b-2 border-slate-900 inline-block">Credit & Payments Log</h2>
              <table className="w-full text-left mt-2 text-xs"><thead><tr className="bg-slate-200 text-slate-900"><th className="p-1">Customer</th><th className="p-1">Type</th><th className="p-1 text-right">Amount</th></tr></thead><tbody>
                  {day.creditEntries.map(e => <tr key={e.id} className="border-b"><td className="p-1 font-bold text-slate-900">{e.customerName}</td><td className="p-1 text-red-700 font-bold">Given</td><td className="p-1 text-right font-black text-slate-900">{inr(e.amount)}</td></tr>)}
                  {day.paymentEntries.map(e => <tr key={e.id} className="border-b"><td className="p-1 font-bold text-slate-900">{e.customerName}</td><td className="p-1 text-emerald-700 font-bold">Received</td><td className="p-1 text-right font-black text-slate-900">{inr(e.amount)}</td></tr>)}
              </tbody></table>
-             {/* Explicit totals summary requested */}
-             <div className="flex justify-between mt-3 text-xs font-black">
-                <span className="text-red-700 bg-red-50 px-2 py-1 rounded">Total Credit Given: {inr(creditGivenToday)}</span>
-                <span className="text-emerald-700 bg-emerald-50 px-2 py-1 rounded">Total Received: {inr(paymentsReceivedToday)}</span>
+             {/* FIX 2: Explicit Totals added to report */}
+             <div className="mt-3 flex justify-between font-black text-xs">
+               <span className="bg-slate-100 px-2 py-1 rounded">Total Credit Given: {inr(creditGivenToday)}</span>
+               <span className="bg-slate-100 px-2 py-1 rounded">Total Received: {inr(paymentsReceivedToday)}</span>
+               <span className="bg-slate-100 px-2 py-1 rounded">Net: {inr(creditGivenToday - paymentsReceivedToday)}</span>
              </div>
           </div>
         )}
@@ -371,12 +372,68 @@ function ReportTab({ currentDate, day, ledgerRow }) {
   );
 }
 
-// ============ Analytics Tab ============
-function AnalyticsTab({ creditors, balances }) {
+// ============ Analytics Tab (Enhanced with Filters & Graphs) ============
+function AnalyticsTab({ days, creditors, balances }) {
+  const [filter, setFilter] = useState("7");
+  
+  // Calculate date range
+  const filteredDates = useMemo(() => {
+     const sorted = Object.keys(days).sort();
+     if (filter === "all") return sorted;
+     return sorted.slice(-Number(filter));
+  }, [days, filter]);
+
+  // Aggregate Data for Graph
+  const chartData = useMemo(() => {
+     let maxRev = 0;
+     const data = filteredDates.map(date => {
+        const d = days[date];
+        const rev = FUEL_KEYS.reduce((sum, k) => sum + d.fuel[k].volume * d.fuel[k].rate, 0);
+        if (rev > maxRev) maxRev = rev;
+        return { date: date.slice(5), rev }; // display MM-DD
+     });
+     return data.map(d => ({ ...d, height: maxRev > 0 ? (d.rev / maxRev) * 100 : 0 }));
+  }, [days, filteredDates]);
+
+  // Totals for filtered period
+  const periodTotals = useMemo(() => {
+     let rev = 0, exp = 0;
+     filteredDates.forEach(date => {
+        const d = days[date];
+        rev += FUEL_KEYS.reduce((sum, k) => sum + d.fuel[k].volume * d.fuel[k].rate, 0);
+        exp += d.expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+     });
+     return { rev, exp };
+  }, [days, filteredDates]);
+
   const topByBalance = useMemo(() => creditors.map(c => ({ ...c, balance: balances[c.account_number] ?? 0 })).sort((a, b) => b.balance - a.balance).slice(0, 10), [creditors, balances]);
+
   return (
     <div className="space-y-4">
-      <Card title="Outstanding Credit Top 10">
+      <div className="flex p-1 bg-slate-200 rounded-lg">
+        <button onClick={() => setFilter("7")} className={`flex-1 rounded-md py-2 text-xs font-bold ${filter === "7" ? "bg-white shadow" : "text-slate-600"}`}>Last 7 Days</button>
+        <button onClick={() => setFilter("30")} className={`flex-1 rounded-md py-2 text-xs font-bold ${filter === "30" ? "bg-white shadow" : "text-slate-600"}`}>Last 30 Days</button>
+        <button onClick={() => setFilter("all")} className={`flex-1 rounded-md py-2 text-xs font-bold ${filter === "all" ? "bg-white shadow" : "text-slate-600"}`}>All Time</button>
+      </div>
+
+      <Card title="Revenue Trend (Selected Period)">
+         <div className="flex justify-between mb-2 text-sm font-black text-slate-900">
+            <span>Rev: {inr(periodTotals.rev)}</span><span>Exp: {inr(periodTotals.exp)}</span>
+         </div>
+         <div className="flex h-32 items-end gap-1 mt-4 border-b border-slate-200 pb-1">
+            {chartData.map((d, i) => (
+               <div key={i} className="flex-1 flex flex-col items-center justify-end h-full group relative">
+                  <div style={{height: `${Math.max(d.height, 2)}%`}} className="w-full bg-slate-900 rounded-t hover:bg-emerald-600 transition-colors"></div>
+                  <span className="text-[8px] text-slate-500 font-bold mt-1">{d.date}</span>
+                  {/* Tooltip */}
+                  <div className="absolute -top-6 bg-black text-white text-[10px] px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap">{inr(d.rev)}</div>
+               </div>
+            ))}
+         </div>
+         {chartData.length === 0 && <p className="text-center text-xs text-slate-400 mt-4">No data in this period.</p>}
+      </Card>
+
+      <Card title="Outstanding Debtors (Top 10)">
         <ul className="divide-y text-sm">
           {topByBalance.map(c => <li key={c.account_number} className="py-2 flex justify-between"><span className="font-bold text-slate-800">{c.name}</span><span className="font-black text-red-600">{inr(c.balance)}</span></li>)}
         </ul>
@@ -385,21 +442,23 @@ function AnalyticsTab({ creditors, balances }) {
   );
 }
 
-// ============ Admin Tab (Fully Restored) ============
+// ============ Admin Tab (Fully Restored as per Requirement) ============
 function AdminTab({ days, currentRates, setRate, creditors, setCreditors, expenseCategories, setExpenseCategories, creditSources, setCreditSources }) {
   const [unlocked, setUnlocked] = useState(false);
   const [passcode, setPasscode] = useState("");
+  
   const [newCategory, setNewCategory] = useState("");
   const [newSource, setNewSource] = useState("");
   const [newCreditorName, setNewCreditorName] = useState("");
   const [newCreditorBalance, setNewCreditorBalance] = useState("");
   const [bulkImportText, setBulkImportText] = useState("");
+  const [importMode, setImportMode] = useState("add"); // 'add' | 'replace'
 
   if (!unlocked) {
     return (
-      <Card title="Admin Lock">
-        <input type="password" value={passcode} onChange={(e) => setPasscode(e.target.value)} placeholder="Passcode" className="w-full border rounded-lg p-3 outline-none" />
-        <button onClick={() => passcode === ADMIN_PASSCODE && setUnlocked(true)} className="mt-3 w-full bg-slate-900 text-white font-bold py-3 rounded-lg">Unlock Config</button>
+      <Card title="Admin Settings Lock">
+        <input type="password" value={passcode} onChange={(e) => setPasscode(e.target.value)} placeholder="Enter Passcode" className="w-full border rounded-lg p-3 outline-none text-center font-bold tracking-widest" />
+        <button onClick={() => passcode === ADMIN_PASSCODE && setUnlocked(true)} className="mt-3 w-full bg-slate-900 text-white font-bold py-3 rounded-lg">Unlock Settings</button>
       </Card>
     );
   }
@@ -428,44 +487,65 @@ function AdminTab({ days, currentRates, setRate, creditors, setCreditors, expens
     setNewCreditorName(""); setNewCreditorBalance("");
   };
 
+  const bulkImport = () => {
+    if (!bulkImportText.trim()) return;
+    const imported = bulkImportText.trim().split("\n").map(line => {
+        const [acc, name, bal] = line.split(",").map(s => s.trim());
+        return (acc && name) ? { id: acc, account_number: acc, name: name, opening_balance: Number(bal)||0 } : null;
+    }).filter(Boolean);
+    
+    if (importMode === "replace") setCreditors(imported);
+    else {
+        const existing = creditors.map(c => c.account_number);
+        setCreditors([...creditors, ...imported.filter(i => !existing.includes(i.account_number))]);
+    }
+    setBulkImportText("");
+  };
+
   return (
     <div className="space-y-4">
-      <Card title="Fuel Rates">
-         <div className="flex gap-2"><div className="flex-1"><NumberField label="Petrol" value={currentRates.petrol} onChange={v => setRate('petrol', v)} /></div><div className="flex-1"><NumberField label="Diesel" value={currentRates.diesel} onChange={v => setRate('diesel', v)} /></div><div className="flex-1"><NumberField label="CNG" value={currentRates.cng} onChange={v => setRate('cng', v)} /></div></div>
+      <Card title="Global Fuel Rates">
+         <div className="flex gap-2">
+            <div className="flex-1"><NumberField label="Petrol" value={currentRates.petrol} onChange={v => setRate('petrol', v)} /></div>
+            <div className="flex-1"><NumberField label="Diesel" value={currentRates.diesel} onChange={v => setRate('diesel', v)} /></div>
+            <div className="flex-1"><NumberField label="CNG" value={currentRates.cng} onChange={v => setRate('cng', v)} /></div>
+         </div>
       </Card>
       
-      <Card title="Export Data">
-         <button onClick={exportData} className="w-full bg-emerald-600 text-white font-bold py-3 rounded-lg">📥 Download Historical CSV</button>
+      <Card title="Data Export">
+         <button onClick={exportData} className="w-full bg-emerald-600 text-white font-bold py-3 rounded-lg">📥 Download Historical CSV Dump</button>
       </Card>
 
-      <Card title={`Customers (${creditors.length})`}>
-        <div className="flex gap-2 mb-2">
-          <input type="text" value={newCreditorName} onChange={e => setNewCreditorName(e.target.value)} placeholder="Name" className="flex-1 border rounded p-2 text-sm" />
-          <input type="number" value={newCreditorBalance} onChange={e => setNewCreditorBalance(e.target.value)} placeholder="Bal" className="w-20 border rounded p-2 text-sm" />
+      <Card title={`Customer Management (${creditors.length})`}>
+        <div className="flex gap-2 mb-3">
+          <input type="text" value={newCreditorName} onChange={e => setNewCreditorName(e.target.value)} placeholder="Customer Name" className="flex-1 border rounded p-2 text-sm" />
+          <input type="number" value={newCreditorBalance} onChange={e => setNewCreditorBalance(e.target.value)} placeholder="Balance" className="w-20 border rounded p-2 text-sm" />
           <button onClick={addCreditor} className="bg-slate-900 text-white px-3 rounded font-bold">Add</button>
         </div>
-        <textarea value={bulkImportText} onChange={e => setBulkImportText(e.target.value)} placeholder="Bulk add CSV: account,name,bal" rows={2} className="w-full border rounded p-2 text-xs font-mono mb-2" />
-        <button onClick={() => {
-           if (!bulkImportText.trim()) return;
-           const imported = bulkImportText.trim().split("\n").map(line => { const [a, n, b] = line.split(","); return (a && n) ? { id: a, account_number: a, name: n, opening_balance: Number(b)||0 } : null; }).filter(Boolean);
-           setCreditors([...creditors, ...imported]); setBulkImportText("");
-        }} className="w-full border py-2 text-xs font-bold rounded">Import Batch</button>
+        
+        <p className="text-[10px] font-bold text-slate-500 mb-1">BULK IMPORT CSV (Format: acc_num,name,bal)</p>
+        <div className="flex gap-2 mb-1">
+            <button onClick={() => setImportMode("add")} className={`text-xs px-2 py-1 rounded ${importMode === "add" ? 'bg-slate-900 text-white' : 'border text-slate-500'}`}>Add to existing</button>
+            <button onClick={() => setImportMode("replace")} className={`text-xs px-2 py-1 rounded ${importMode === "replace" ? 'bg-slate-900 text-white' : 'border text-slate-500'}`}>Replace all</button>
+        </div>
+        <textarea value={bulkImportText} onChange={e => setBulkImportText(e.target.value)} placeholder="21192539001,Customer Name,1500" rows={2} className="w-full border rounded p-2 text-xs font-mono mb-2" />
+        <button onClick={bulkImport} className="w-full border border-slate-900 text-slate-900 py-2 text-xs font-bold rounded">Import Batch</button>
       </Card>
 
       <Card title="Expense Categories">
-        <ul className="text-sm divide-y mb-2">{expenseCategories.map(c => <li key={c} className="flex justify-between py-1"><span>{c}</span><button onClick={() => setExpenseCategories(expenseCategories.filter(x => x !== c))} className="text-red-500 font-bold text-xs">✕</button></li>)}</ul>
-        <div className="flex gap-2"><input type="text" value={newCategory} onChange={e => setNewCategory(e.target.value)} placeholder="New" className="flex-1 border rounded p-1 text-sm" /><button onClick={() => { if(newCategory) { setExpenseCategories([...expenseCategories, newCategory]); setNewCategory(""); } }} className="bg-slate-900 text-white px-3 rounded font-bold text-sm">Add</button></div>
+        <ul className="text-sm divide-y mb-2 font-bold text-slate-700">{expenseCategories.map(c => <li key={c} className="flex justify-between py-1"><span>{c}</span><button onClick={() => setExpenseCategories(expenseCategories.filter(x => x !== c))} className="text-red-500 font-bold text-xs">✕</button></li>)}</ul>
+        <div className="flex gap-2"><input type="text" value={newCategory} onChange={e => setNewCategory(e.target.value)} placeholder="New category name" className="flex-1 border rounded p-1 text-sm font-semibold" /><button onClick={() => { if(newCategory) { setExpenseCategories([...expenseCategories, newCategory]); setNewCategory(""); } }} className="bg-slate-900 text-white px-3 rounded font-bold text-sm">Add</button></div>
       </Card>
 
       <Card title="Payment Sources">
-        <ul className="text-sm divide-y mb-2">{creditSources.map(s => <li key={s} className="flex justify-between py-1"><span>{s}</span><button onClick={() => setCreditSources(creditSources.filter(x => x !== s))} className="text-red-500 font-bold text-xs">✕</button></li>)}</ul>
-        <div className="flex gap-2"><input type="text" value={newSource} onChange={e => setNewSource(e.target.value)} placeholder="New" className="flex-1 border rounded p-1 text-sm" /><button onClick={() => { if(newSource) { setCreditSources([...creditSources, newSource]); setNewSource(""); } }} className="bg-slate-900 text-white px-3 rounded font-bold text-sm">Add</button></div>
+        <ul className="text-sm divide-y mb-2 font-bold text-slate-700">{creditSources.map(s => <li key={s} className="flex justify-between py-1"><span>{s}</span><button onClick={() => setCreditSources(creditSources.filter(x => x !== s))} className="text-red-500 font-bold text-xs">✕</button></li>)}</ul>
+        <div className="flex gap-2"><input type="text" value={newSource} onChange={e => setNewSource(e.target.value)} placeholder="New payment source" className="flex-1 border rounded p-1 text-sm font-semibold" /><button onClick={() => { if(newSource) { setCreditSources([...creditSources, newSource]); setNewSource(""); } }} className="bg-slate-900 text-white px-3 rounded font-bold text-sm">Add</button></div>
       </Card>
     </div>
   );
 }
 
-// ============ Core Application ============
+// ============ Core Application Setup ============
 export default function App() {
   const [isDbLoading, setIsDbLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(todayStr());
@@ -476,7 +556,7 @@ export default function App() {
   const [expenseCategories, setExpenseCategories] = useState([]);
   const [creditSources, setCreditSources] = useState([]);
   
-  // Security & Swipe State
+  // Security & Touch Swipe State
   const [pastDateUnlocked, setPastDateUnlocked] = useState(false);
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
@@ -515,6 +595,7 @@ export default function App() {
         const newDays = { ...prev, [currentDate]: emptyDay(currentRates) };
         updateDB('days', newDays); return newDays;
       });
+      // Re-lock past dates when date picker changes
       if (currentDate !== todayStr()) setPastDateUnlocked(false);
     }
   }, [currentDate, currentRates, isDbLoading]);
@@ -522,17 +603,17 @@ export default function App() {
   const update = (patch) => { setDays(prev => { const next = { ...prev, [currentDate]: { ...(prev[currentDate] || emptyDay(currentRates)), ...patch } }; updateDB('days', next); return next; }); };
   const handleSetRate = (fuelKey, val) => { setCurrentRates(prev => { const next = { ...prev, [fuelKey]: val }; updateDB('current_rates', next); return next; }); };
 
-  // Swipe Handlers
+  // FIX 4: Swipe Handlers (Swiping left and right across tabs)
   const onTouchStartEvent = (e) => { setTouchEnd(null); setTouchStart(e.targetTouches[0].clientX); };
   const onTouchMoveEvent = (e) => setTouchEnd(e.targetTouches[0].clientX);
   const onTouchEndEvent = () => {
     if (!touchStart || !touchEnd) return;
     const distance = touchStart - touchEnd;
-    if (distance > 50) { // Swiped left
+    if (distance > 60) { // Swiped left
       const idx = TABS.findIndex(t => t.key === tab);
       if (idx < TABS.length - 1) setTab(TABS[idx + 1].key);
     }
-    if (distance < -50) { // Swiped right
+    if (distance < -60) { // Swiped right
       const idx = TABS.findIndex(t => t.key === tab);
       if (idx > 0) setTab(TABS[idx - 1].key);
     }
@@ -555,6 +636,7 @@ export default function App() {
 
   if (isDbLoading) return <div className="flex h-screen items-center justify-center bg-slate-50"><p className="text-slate-500 font-bold animate-pulse">Syncing with Cloud...</p></div>;
 
+  // FIX 3: Read-Only check applies to all inputs dynamically
   const isPastDate = currentDate !== todayStr();
   const isReadOnly = isPastDate && !pastDateUnlocked;
 
@@ -571,13 +653,15 @@ export default function App() {
         </div>
       </header>
 
-      {/* Swipeable Container */}
-      <main onTouchStart={onTouchStartEvent} onTouchMove={onTouchMoveEvent} onTouchEnd={onTouchEndEvent} className="mx-auto max-w-md p-3">
+      {/* Touch container for swipe functionality */}
+      <main onTouchStart={onTouchStartEvent} onTouchMove={onTouchMoveEvent} onTouchEnd={onTouchEndEvent} className="mx-auto max-w-md p-3 min-h-[70vh]">
+        
+        {/* Visual Read-Only Banner with Auth Button */}
         {isPastDate && ["sales", "credit", "stock"].includes(tab) && (
-           <div className="bg-amber-100 text-amber-900 p-2 rounded-lg text-xs font-bold flex justify-between items-center mb-3 shadow-sm print:hidden">
-              <span>Viewing Past Date (Read-Only)</span>
+           <div className="bg-amber-100 text-amber-900 p-2 rounded-lg text-[10px] font-bold flex justify-between items-center mb-3 shadow-sm print:hidden">
+              <span>VIEWING PAST DATE (READ-ONLY)</span>
               {!pastDateUnlocked ? (
-                 <button onClick={() => { if (window.prompt("Enter Admin Passcode to edit past data:") === ADMIN_PASSCODE) setPastDateUnlocked(true); else alert("Incorrect passcode."); }} className="bg-amber-600 text-white px-3 py-1 rounded">Edit</button>
+                 <button onClick={() => { if (window.prompt("Enter Admin Passcode to edit past records:") === ADMIN_PASSCODE) setPastDateUnlocked(true); else alert("Incorrect passcode."); }} className="bg-amber-600 text-white px-3 py-1 rounded text-xs font-black">Edit</button>
               ) : (
                  <span className="text-emerald-700 bg-emerald-100 px-2 py-1 rounded border border-emerald-200">Unlocked</span>
               )}
@@ -588,7 +672,7 @@ export default function App() {
         {tab === "credit" && <CreditTab day={day} update={update} currentRates={currentRates} balances={balances} creditors={creditors} isReadOnly={isReadOnly} />}
         {tab === "stock" && <StockTab day={day} update={update} ledgerRow={ledgerRow} hasPreviousDay={hasPreviousDay} isReadOnly={isReadOnly} />}
         {tab === "report" && <ReportTab currentDate={currentDate} day={day} ledgerRow={ledgerRow} balances={balances} creditors={creditors} />}
-        {tab === "analytics" && <AnalyticsTab creditors={creditors} balances={balances} />}
+        {tab === "analytics" && <AnalyticsTab days={days} creditors={creditors} balances={balances} />}
         {tab === "admin" && <AdminTab days={days} currentRates={currentRates} setRate={handleSetRate} creditors={creditors} setCreditors={c => { setCreditors(c); updateDB('creditors', c); }} expenseCategories={expenseCategories} setExpenseCategories={c => { setExpenseCategories(c); updateDB('expense_categories', c); }} creditSources={creditSources} setCreditSources={c => { setCreditSources(c); updateDB('credit_sources', c); }} />}
       </main>
 
