@@ -1,6 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+// ============ Database Connection ============
+// Safely using your provided keys to connect directly to Supabase
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://ehayerqftgwwtazlqvjk.supabase.co";
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoYXllcnFmdGd3d3RhemxxdmprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkxMzIyNzUsImV4cCI6MjEwNDcwODI3NX0.i9XZ-kOruflo1MpQFC1AI_iYB4ykLuVpVhVWutFRzaE";
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // ============ constants ============
 const FUEL_KEYS = ["petrol", "diesel", "cng"];
@@ -13,908 +20,158 @@ const DEFAULT_EXPENSE_CATEGORIES = ["Diary / staff advance", "Tea & snacks", "Ve
 const DEFAULT_CREDIT_SOURCES = ["Cash", "SBI", "BPCL", "Phonepe SBTF", "Phonepe Siddharth", "Card"];
 const ADMIN_PASSCODE = "1234";
 
-// Import 150 creditors from your Accounts Master sheet (embedded at build time)
+// Initial Creditors List
 const CREDITORS_INITIAL = [
-  {
-    "account_number": "21192539001",
-    "name": "100 DIAL",
-    "id": "21192539001",
-    "opening_balance": 764.75
-  },
-  {
-    "account_number": "21192539026",
-    "name": "AADINATH TRANSPORT",
-    "id": "21192539026",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539011",
-    "name": "ABHAI JI JOSHI",
-    "id": "21192539011",
-    "opening_balance": 438
-  },
-  {
-    "account_number": "21192539018",
-    "name": "ABHAY JI",
-    "id": "21192539018",
-    "opening_balance": 453202.22
-  },
-  {
-    "account_number": "21192539062",
-    "name": "AJAY GURJAR",
-    "id": "21192539062",
-    "opening_balance": -58
-  },
-  {
-    "account_number": "21192539056",
-    "name": "AJJU BHAIYA MANDI",
-    "id": "21192539056",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539129",
-    "name": "akshay",
-    "id": "21192539129",
-    "opening_balance": 1050
-  },
-  {
-    "account_number": "21192539086",
-    "name": "ALRAZA CONSTRUCTION",
-    "id": "21192539086",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539065",
-    "name": "ANAND BHAIYA",
-    "id": "21192539065",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539132",
-    "name": "Ankit paliwal",
-    "id": "21192539132",
-    "opening_balance": 29355.55
-  },
-  {
-    "account_number": "21192539120",
-    "name": "Ankit Patil",
-    "id": "21192539120",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539030",
-    "name": "ANKUR BHAIYA",
-    "id": "21192539030",
-    "opening_balance": 11440.02
-  },
-  {
-    "account_number": "21192539075",
-    "name": "APM PROJECTS",
-    "id": "21192539075",
-    "opening_balance": -5000
-  },
-  {
-    "account_number": "21192539090",
-    "name": "ARIF BHAI MALWA",
-    "id": "21192539090",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539099",
-    "name": "ARJUN GURJAR SOLAR",
-    "id": "21192539099",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539139",
-    "name": "Arjun yadav",
-    "id": "21192539139",
-    "opening_balance": 50209.5
-  },
-  {
-    "account_number": "21192539140",
-    "name": "Ashwin upadhyay",
-    "id": "21192539140",
-    "opening_balance": 6727.32
-  },
-  {
-    "account_number": "21192539136",
-    "name": "Assisetant Agriculture Agar Malwa",
-    "id": "21192539136",
-    "opening_balance": 5033
-  },
-  {
-    "account_number": "21192539071",
-    "name": "AWADA SOLAR",
-    "id": "21192539071",
-    "opening_balance": 3813
-  },
-  {
-    "account_number": "21192539013",
-    "name": "AWADA SUNSHINE PVT",
-    "id": "21192539013",
-    "opening_balance": 69730
-  },
-  {
-    "account_number": "21192539042",
-    "name": "AWANTIKA(VINOD BAIRAGI)",
-    "id": "21192539042",
-    "opening_balance": 9349
-  },
-  {
-    "account_number": "21192539121",
-    "name": "Bablu chachar Elc",
-    "id": "21192539121",
-    "opening_balance": 42496.28
-  },
-  {
-    "account_number": "21192539072",
-    "name": "BADRI DA LADON",
-    "id": "21192539072",
-    "opening_balance": 5300
-  },
-  {
-    "account_number": "21192539103",
-    "name": "BAJAJ PUMP",
-    "id": "21192539103",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539122",
-    "name": "Balaji Transport",
-    "id": "21192539122",
-    "opening_balance": 33126.71
-  },
-  {
-    "account_number": "21192539073",
-    "name": "BALRAM GURJAR",
-    "id": "21192539073",
-    "opening_balance": 76261
-  },
-  {
-    "account_number": "21192539041",
-    "name": "BAUJI LADON",
-    "id": "21192539041",
-    "opening_balance": 923822.92
-  },
-  {
-    "account_number": "21192539016",
-    "name": "BEJNATH BUS",
-    "id": "21192539016",
-    "opening_balance": 196950.4
-  },
-  {
-    "account_number": "21192539095",
-    "name": "BEJNATH MAHADEV SHAHI MANDAL",
-    "id": "21192539095",
-    "opening_balance": 23953.8
-  },
-  {
-    "account_number": "21192539118",
-    "name": "BHARAT PRAJAPATI",
-    "id": "21192539118",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539087",
-    "name": "BHUMIKA ENTERPRISES",
-    "id": "21192539087",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539003",
-    "name": "BOI LDM 1463",
-    "id": "21192539003",
-    "opening_balance": 69681.8
-  },
-  {
-    "account_number": "21192539024",
-    "name": "BPCL",
-    "id": "21192539024",
-    "opening_balance": 4705.91
-  },
-  {
-    "account_number": "21192539004",
-    "name": "CEO SUSNER",
-    "id": "21192539004",
-    "opening_balance": 63411
-  },
-  {
-    "account_number": "21192539025",
-    "name": "CHAND JI PATIDAR",
-    "id": "21192539025",
-    "opening_balance": 485257.35
-  },
-  {
-    "account_number": "21192539019",
-    "name": "CM & HO AGAR",
-    "id": "21192539019",
-    "opening_balance": 77990.1
-  },
-  {
-    "account_number": "21192539066",
-    "name": "DARBAR NARAYAN SINGH",
-    "id": "21192539066",
-    "opening_balance": 27100
-  },
-  {
-    "account_number": "21192539097",
-    "name": "DEEPAK GURJAR",
-    "id": "21192539097",
-    "opening_balance": 21883.06
-  },
-  {
-    "account_number": "21192539063",
-    "name": "Dev Kali Infra",
-    "id": "21192539063",
-    "opening_balance": -16
-  },
-  {
-    "account_number": "21192539040",
-    "name": "DEVKARAN BHAIYA",
-    "id": "21192539040",
-    "opening_balance": 1751698.16
-  },
-  {
-    "account_number": "21192539060",
-    "name": "DURGESH KATARIA",
-    "id": "21192539060",
-    "opening_balance": 2013.2
-  },
-  {
-    "account_number": "21192539036",
-    "name": "FULL SINGH JI GURJAR",
-    "id": "21192539036",
-    "opening_balance": 17000
-  },
-  {
-    "account_number": "21192539049",
-    "name": "FULL SINGH JI PACHETI",
-    "id": "21192539049",
-    "opening_balance": 28121
-  },
-  {
-    "account_number": "21192539085",
-    "name": "GANGARAM JI SULTANPUR",
-    "id": "21192539085",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539138",
-    "name": "Gokul singh",
-    "id": "21192539138",
-    "opening_balance": 15999.91
-  },
-  {
-    "account_number": "21192539021",
-    "name": "GOVARDHAN GURJAR",
-    "id": "21192539021",
-    "opening_balance": 18015
-  },
-  {
-    "account_number": "21192539110",
-    "name": "GR INFRA SURESH JI",
-    "id": "21192539110",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539109",
-    "name": "Hardik Jain",
-    "id": "21192539109",
-    "opening_balance": 9920.5
-  },
-  {
-    "account_number": "21192539102",
-    "name": "HEMANT SIR AWADA",
-    "id": "21192539102",
-    "opening_balance": 2347
-  },
-  {
-    "account_number": "21192539020",
-    "name": "HIRALAL JI YADAV",
-    "id": "21192539020",
-    "opening_balance": 20248
-  },
-  {
-    "account_number": "21192539115",
-    "name": "INDOLIA COMPANY",
-    "id": "21192539115",
-    "opening_balance": 1.03
-  },
-  {
-    "account_number": "21192539052",
-    "name": "JAGDISH JI MANTRI JI",
-    "id": "21192539052",
-    "opening_balance": 113231
-  },
-  {
-    "account_number": "21192539104",
-    "name": "JAYANT CONSTRUCTION",
-    "id": "21192539104",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539032",
-    "name": "JEEVAN SINGH BINAYAGA",
-    "id": "21192539032",
-    "opening_balance": 3922
-  },
-  {
-    "account_number": "21192539027",
-    "name": "JEEWAN SINGH GURJAR",
-    "id": "21192539027",
-    "opening_balance": 3.65
-  },
-  {
-    "account_number": "21192539074",
-    "name": "JEPEE CONSTRUCTION",
-    "id": "21192539074",
-    "opening_balance": 1498
-  },
-  {
-    "account_number": "21192539128",
-    "name": "jila sah samanvayak agar",
-    "id": "21192539128",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539005",
-    "name": "JILA UDYOG AGAR",
-    "id": "21192539005",
-    "opening_balance": 1638
-  },
-  {
-    "account_number": "21192539093",
-    "name": "JITENDRA BAIRAGI",
-    "id": "21192539093",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539145",
-    "name": "K",
-    "id": "21192539145",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539144",
-    "name": "Kalash Yatra",
-    "id": "21192539144",
-    "opening_balance": 223022.3
-  },
-  {
-    "account_number": "21192539033",
-    "name": "KAMAL DEVELOPERS",
-    "id": "21192539033",
-    "opening_balance": 5992
-  },
-  {
-    "account_number": "21192539091",
-    "name": "KAMAL SINGH AWAR",
-    "id": "21192539091",
-    "opening_balance": 47972
-  },
-  {
-    "account_number": "21192539034",
-    "name": "KARAN MALVIYA",
-    "id": "21192539034",
-    "opening_balance": 600
-  },
-  {
-    "account_number": "21192539051",
-    "name": "KAVYA & TIWARI ASSOCIATES",
-    "id": "21192539051",
-    "opening_balance": 3622
-  },
-  {
-    "account_number": "21192539108",
-    "name": "Kedar Ji Ajmera",
-    "id": "21192539108",
-    "opening_balance": 3000
-  },
-  {
-    "account_number": "21192539119",
-    "name": "KESHAV TRANSPORT NARWAL",
-    "id": "21192539119",
-    "opening_balance": 29044.41
-  },
-  {
-    "account_number": "21192539043",
-    "name": "KOMAL CONSTRUCTION",
-    "id": "21192539043",
-    "opening_balance": 100001.25
-  },
-  {
-    "account_number": "21192539137",
-    "name": "Kshema Power India PVT LTD",
-    "id": "21192539137",
-    "opening_balance": 20505.78
-  },
-  {
-    "account_number": "21192539146",
-    "name": "L",
-    "id": "21192539146",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539094",
-    "name": "LUV KUSH",
-    "id": "21192539094",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539147",
-    "name": "M",
-    "id": "21192539147",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539059",
-    "name": "MAA CHAMUNDA",
-    "id": "21192539059",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539046",
-    "name": "MADAN SINGH JI NIPANIYA",
-    "id": "21192539046",
-    "opening_balance": 20.0
-  },
-  {
-    "account_number": "21192539113",
-    "name": "Mahakal Darshan",
-    "id": "21192539113",
-    "opening_balance": -8372
-  },
-  {
-    "account_number": "21192539022",
-    "name": "MAHENDRA SINGH JI AWAR",
-    "id": "21192539022",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539076",
-    "name": "MALWA INFRACON",
-    "id": "21192539076",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539029",
-    "name": "MANISH JI SHARMA KANAD",
-    "id": "21192539029",
-    "opening_balance": 5640
-  },
-  {
-    "account_number": "21192539134",
-    "name": "MANISH SONI",
-    "id": "21192539134",
-    "opening_balance": 18427.75
-  },
-  {
-    "account_number": "21192539125",
-    "name": "MEGA GAS",
-    "id": "21192539125",
-    "opening_balance": -236255.86
-  },
-  {
-    "account_number": "21192539123",
-    "name": "Mitansh Enterprises",
-    "id": "21192539123",
-    "opening_balance": 60179.3
-  },
-  {
-    "account_number": "21192539089",
-    "name": "MOHANLAL JI YADAV BAPCHA",
-    "id": "21192539089",
-    "opening_balance": 171331.36
-  },
-  {
-    "account_number": "21192539044",
-    "name": "MOONBRIGHT INFRA",
-    "id": "21192539044",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539002",
-    "name": "MS Latent Landinfra",
-    "id": "21192539002",
-    "opening_balance": 46.54
-  },
-  {
-    "account_number": "21192539148",
-    "name": "N",
-    "id": "21192539148",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539038",
-    "name": "NAGAR PALIKA AGAR",
-    "id": "21192539038",
-    "opening_balance": 2191652.82
-  },
-  {
-    "account_number": "21192539088",
-    "name": "NAPTOL MADAM",
-    "id": "21192539088",
-    "opening_balance": 4791
-  },
-  {
-    "account_number": "21192539047",
-    "name": "NARAYAN SINGH DUDH WAHAN",
-    "id": "21192539047",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539055",
-    "name": "NARAYAN SINGH SOLAR",
-    "id": "21192539055",
-    "opening_balance": 68884.45
-  },
-  {
-    "account_number": "21192539100",
-    "name": "NATRAJ CONSTRUCTION",
-    "id": "21192539100",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539142",
-    "name": "Nilesh jain",
-    "id": "21192539142",
-    "opening_balance": 82510.0
-  },
-  {
-    "account_number": "21192539083",
-    "name": "NILESH JI JAIN",
-    "id": "21192539083",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539054",
-    "name": "NIRVACHAN AAYOG",
-    "id": "21192539054",
-    "opening_balance": 60587
-  },
-  {
-    "account_number": "21192539149",
-    "name": "O",
-    "id": "21192539149",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539006",
-    "name": "OM JI GOYAL",
-    "id": "21192539006",
-    "opening_balance": 69935.19
-  },
-  {
-    "account_number": "21192539124",
-    "name": "Oyester Green Hybrid",
-    "id": "21192539124",
-    "opening_balance": 98575.35
-  },
-  {
-    "account_number": "21192539150",
-    "name": "P",
-    "id": "21192539150",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539045",
-    "name": "PANKAJ JI KOTHARI",
-    "id": "21192539045",
-    "opening_balance": 6184.4
-  },
-  {
-    "account_number": "21192539048",
-    "name": "PARAS GAWALI",
-    "id": "21192539048",
-    "opening_balance": 14789.66
-  },
-  {
-    "account_number": "21192539077",
-    "name": "PATIDAR CONSTRUCTION",
-    "id": "21192539077",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539007",
-    "name": "PHE AGAR",
-    "id": "21192539007",
-    "opening_balance": 231226.73
-  },
-  {
-    "account_number": "21192539053",
-    "name": "PHONEPE",
-    "id": "21192539053",
-    "opening_balance": 312456.1
-  },
-  {
-    "account_number": "21192539050",
-    "name": "PINTU SHARMA MP SHASHAN",
-    "id": "21192539050",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539008",
-    "name": "PIU PWD AGAR",
-    "id": "21192539008",
-    "opening_balance": 84796.87
-  },
-  {
-    "account_number": "21192539070",
-    "name": "PRAKASH BHAIYA boi",
-    "id": "21192539070",
-    "opening_balance": 14964
-  },
-  {
-    "account_number": "21192539009",
-    "name": "PRAVIN YADAV JCB",
-    "id": "21192539009",
-    "opening_balance": 29717
-  },
-  {
-    "account_number": "21192539010",
-    "name": "PRINCE HYUNDAI AGAR",
-    "id": "21192539010",
-    "opening_balance": 4143.17
-  },
-  {
-    "account_number": "21192539057",
-    "name": "PSH TECHNO ENGG",
-    "id": "21192539057",
-    "opening_balance": -698
-  },
-  {
-    "account_number": "21192539130",
-    "name": "Raish Bhai",
-    "id": "21192539130",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539069",
-    "name": "RAJESH JI DUDH DAIRY",
-    "id": "21192539069",
-    "opening_balance": 32942
-  },
-  {
-    "account_number": "21192539133",
-    "name": "ramesh sultanpura",
-    "id": "21192539133",
-    "opening_balance": 0.55
-  },
-  {
-    "account_number": "21192539112",
-    "name": "Richi Crane Service",
-    "id": "21192539112",
-    "opening_balance": 90054.89
-  },
-  {
-    "account_number": "21192539127",
-    "name": "S.K.JAIN",
-    "id": "21192539127",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539143",
-    "name": "Samir bhai elc",
-    "id": "21192539143",
-    "opening_balance": 3820.88
-  },
-  {
-    "account_number": "21192539114",
-    "name": "Sanghvi Removeable",
-    "id": "21192539114",
-    "opening_balance": 10041
-  },
-  {
-    "account_number": "21192539107",
-    "name": "Sanwaliya Wintech Pvt Ltd",
-    "id": "21192539107",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539061",
-    "name": "SATYALAKSHMI INFRACOM",
-    "id": "21192539061",
-    "opening_balance": 18231
-  },
-  {
-    "account_number": "21192539028",
-    "name": "SBTF DG",
-    "id": "21192539028",
-    "opening_balance": 45707.8
-  },
-  {
-    "account_number": "21192539023",
-    "name": "SBTF MP09H0127",
-    "id": "21192539023",
-    "opening_balance": 8593.8
-  },
-  {
-    "account_number": "21192539031",
-    "name": "SDM COLLECTOR OFFICE",
-    "id": "21192539031",
-    "opening_balance": 2372
-  },
-  {
-    "account_number": "21192539126",
-    "name": "SDO AGAR SATYALAKSHAMI",
-    "id": "21192539126",
-    "opening_balance": 55222.88
-  },
-  {
-    "account_number": "21192539012",
-    "name": "SDO WRD AGAR",
-    "id": "21192539012",
-    "opening_balance": 6706
-  },
-  {
-    "account_number": "21192539117",
-    "name": "Sethiy Company",
-    "id": "21192539117",
-    "opening_balance": 12722
-  },
-  {
-    "account_number": "21192539037",
-    "name": "SHIV AKYA",
-    "id": "21192539037",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539014",
-    "name": "SHIV YADAV JCB",
-    "id": "21192539014",
-    "opening_balance": 85647.7
-  },
-  {
-    "account_number": "21192539015",
-    "name": "SHREE MAYA AGRO AGAR",
-    "id": "21192539015",
-    "opening_balance": 13296
-  },
-  {
-    "account_number": "21192539058",
-    "name": "SHREYAS CIVIL",
-    "id": "21192539058",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539078",
-    "name": "SIDDHARTH BHAIYA(HARRIER)",
-    "id": "21192539078",
-    "opening_balance": 95075.1
-  },
-  {
-    "account_number": "21192539082",
-    "name": "SIMRAN SOLAR ENERGY",
-    "id": "21192539082",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539098",
-    "name": "SIS COMPANY",
-    "id": "21192539098",
-    "opening_balance": 3000
-  },
-  {
-    "account_number": "21192539081",
-    "name": "SITARAM JI GURJAR",
-    "id": "21192539081",
-    "opening_balance": 59132.53
-  },
-  {
-    "account_number": "21192539106",
-    "name": "SK INFRA",
-    "id": "21192539106",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539079",
-    "name": "SODAN SINGH KHEDA",
-    "id": "21192539079",
-    "opening_balance": 45263.72
-  },
-  {
-    "account_number": "21192539080",
-    "name": "STC MPBB",
-    "id": "21192539080",
-    "opening_balance": 125818.03
-  },
-  {
-    "account_number": "21192539116",
-    "name": "Sudeep Jain",
-    "id": "21192539116",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539105",
-    "name": "SUDIP KOTHARI",
-    "id": "21192539105",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539141",
-    "name": "Sundar ji yadav",
-    "id": "21192539141",
-    "opening_balance": 16288.8
-  },
-  {
-    "account_number": "21192539035",
-    "name": "SUNIL JI JINDAL",
-    "id": "21192539035",
-    "opening_balance": 89789.26
-  },
-  {
-    "account_number": "21192539084",
-    "name": "SUSNER GADI",
-    "id": "21192539084",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539064",
-    "name": "SUZLON COMPANY",
-    "id": "21192539064",
-    "opening_balance": 20185
-  },
-  {
-    "account_number": "21192539067",
-    "name": "SYSTEM RENWABLE",
-    "id": "21192539067",
-    "opening_balance": 11308
-  },
-  {
-    "account_number": "21192539096",
-    "name": "TONY NAWAL",
-    "id": "21192539096",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539092",
-    "name": "TUSHAR JI JOSHI",
-    "id": "21192539092",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539111",
-    "name": "UFILL",
-    "id": "21192539111",
-    "opening_balance": 708
-  },
-  {
-    "account_number": "21192539131",
-    "name": "Vaishnav tour",
-    "id": "21192539131",
-    "opening_balance": 8.47
-  },
-  {
-    "account_number": "21192539101",
-    "name": "Virendar shing sisodiya",
-    "id": "21192539101",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539135",
-    "name": "Virendra shing Sisodiya",
-    "id": "21192539135",
-    "opening_balance": 3580
-  },
-  {
-    "account_number": "21192539039",
-    "name": "VISHNU DAL MILL",
-    "id": "21192539039",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539068",
-    "name": "YASH TILE",
-    "id": "21192539068",
-    "opening_balance": 0
-  },
-  {
-    "account_number": "21192539017",
-    "name": "ZSK",
-    "id": "21192539017",
-    "opening_balance": 19216.35
-  }
+  { "account_number": "21192539001", "name": "100 DIAL", "id": "21192539001", "opening_balance": 764.75 },
+  { "account_number": "21192539026", "name": "AADINATH TRANSPORT", "id": "21192539026", "opening_balance": 0 },
+  { "account_number": "21192539011", "name": "ABHAI JI JOSHI", "id": "21192539011", "opening_balance": 438 },
+  { "account_number": "21192539018", "name": "ABHAY JI", "id": "21192539018", "opening_balance": 453202.22 },
+  { "account_number": "21192539062", "name": "AJAY GURJAR", "id": "21192539062", "opening_balance": -58 },
+  { "account_number": "21192539056", "name": "AJJU BHAIYA MANDI", "id": "21192539056", "opening_balance": 0 },
+  { "account_number": "21192539129", "name": "akshay", "id": "21192539129", "opening_balance": 1050 },
+  { "account_number": "21192539086", "name": "ALRAZA CONSTRUCTION", "id": "21192539086", "opening_balance": 0 },
+  { "account_number": "21192539065", "name": "ANAND BHAIYA", "id": "21192539065", "opening_balance": 0 },
+  { "account_number": "21192539132", "name": "Ankit paliwal", "id": "21192539132", "opening_balance": 29355.55 },
+  { "account_number": "21192539120", "name": "Ankit Patil", "id": "21192539120", "opening_balance": 0 },
+  { "account_number": "21192539030", "name": "ANKUR BHAIYA", "id": "21192539030", "opening_balance": 11440.02 },
+  { "account_number": "21192539075", "name": "APM PROJECTS", "id": "21192539075", "opening_balance": -5000 },
+  { "account_number": "21192539090", "name": "ARIF BHAI MALWA", "id": "21192539090", "opening_balance": 0 },
+  { "account_number": "21192539099", "name": "ARJUN GURJAR SOLAR", "id": "21192539099", "opening_balance": 0 },
+  { "account_number": "21192539139", "name": "Arjun yadav", "id": "21192539139", "opening_balance": 50209.5 },
+  { "account_number": "21192539140", "name": "Ashwin upadhyay", "id": "21192539140", "opening_balance": 6727.32 },
+  { "account_number": "21192539136", "name": "Assisetant Agriculture Agar Malwa", "id": "21192539136", "opening_balance": 5033 },
+  { "account_number": "21192539071", "name": "AWADA SOLAR", "id": "21192539071", "opening_balance": 3813 },
+  { "account_number": "21192539013", "name": "AWADA SUNSHINE PVT", "id": "21192539013", "opening_balance": 69730 },
+  { "account_number": "21192539042", "name": "AWANTIKA(VINOD BAIRAGI)", "id": "21192539042", "opening_balance": 9349 },
+  { "account_number": "21192539121", "name": "Bablu chachar Elc", "id": "21192539121", "opening_balance": 42496.28 },
+  { "account_number": "21192539072", "name": "BADRI DA LADON", "id": "21192539072", "opening_balance": 5300 },
+  { "account_number": "21192539103", "name": "BAJAJ PUMP", "id": "21192539103", "opening_balance": 0 },
+  { "account_number": "21192539122", "name": "Balaji Transport", "id": "21192539122", "opening_balance": 33126.71 },
+  { "account_number": "21192539073", "name": "BALRAM GURJAR", "id": "21192539073", "opening_balance": 76261 },
+  { "account_number": "21192539041", "name": "BAUJI LADON", "id": "21192539041", "opening_balance": 923822.92 },
+  { "account_number": "21192539016", "name": "BEJNATH BUS", "id": "21192539016", "opening_balance": 196950.4 },
+  { "account_number": "21192539095", "name": "BEJNATH MAHADEV SHAHI MANDAL", "id": "21192539095", "opening_balance": 23953.8 },
+  { "account_number": "21192539118", "name": "BHARAT PRAJAPATI", "id": "21192539118", "opening_balance": 0 },
+  { "account_number": "21192539087", "name": "BHUMIKA ENTERPRISES", "id": "21192539087", "opening_balance": 0 },
+  { "account_number": "21192539003", "name": "BOI LDM 1463", "id": "21192539003", "opening_balance": 69681.8 },
+  { "account_number": "21192539024", "name": "BPCL", "id": "21192539024", "opening_balance": 4705.91 },
+  { "account_number": "21192539004", "name": "CEO SUSNER", "id": "21192539004", "opening_balance": 63411 },
+  { "account_number": "21192539025", "name": "CHAND JI PATIDAR", "id": "21192539025", "opening_balance": 485257.35 },
+  { "account_number": "21192539019", "name": "CM & HO AGAR", "id": "21192539019", "opening_balance": 77990.1 },
+  { "account_number": "21192539066", "name": "DARBAR NARAYAN SINGH", "id": "21192539066", "opening_balance": 27100 },
+  { "account_number": "21192539097", "name": "DEEPAK GURJAR", "id": "21192539097", "opening_balance": 21883.06 },
+  { "account_number": "21192539063", "name": "Dev Kali Infra", "id": "21192539063", "opening_balance": -16 },
+  { "account_number": "21192539040", "name": "DEVKARAN BHAIYA", "id": "21192539040", "opening_balance": 1751698.16 },
+  { "account_number": "21192539060", "name": "DURGESH KATARIA", "id": "21192539060", "opening_balance": 2013.2 },
+  { "account_number": "21192539036", "name": "FULL SINGH JI GURJAR", "id": "21192539036", "opening_balance": 17000 },
+  { "account_number": "21192539049", "name": "FULL SINGH JI PACHETI", "id": "21192539049", "opening_balance": 28121 },
+  { "account_number": "21192539085", "name": "GANGARAM JI SULTANPUR", "id": "21192539085", "opening_balance": 0 },
+  { "account_number": "21192539138", "name": "Gokul singh", "id": "21192539138", "opening_balance": 15999.91 },
+  { "account_number": "21192539021", "name": "GOVARDHAN GURJAR", "id": "21192539021", "opening_balance": 18015 },
+  { "account_number": "21192539110", "name": "GR INFRA SURESH JI", "id": "21192539110", "opening_balance": 0 },
+  { "account_number": "21192539109", "name": "Hardik Jain", "id": "21192539109", "opening_balance": 9920.5 },
+  { "account_number": "21192539102", "name": "HEMANT SIR AWADA", "id": "21192539102", "opening_balance": 2347 },
+  { "account_number": "21192539020", "name": "HIRALAL JI YADAV", "id": "21192539020", "opening_balance": 20248 },
+  { "account_number": "21192539115", "name": "INDOLIA COMPANY", "id": "21192539115", "opening_balance": 1.03 },
+  { "account_number": "21192539052", "name": "JAGDISH JI MANTRI JI", "id": "21192539052", "opening_balance": 113231 },
+  { "account_number": "21192539104", "name": "JAYANT CONSTRUCTION", "id": "21192539104", "opening_balance": 0 },
+  { "account_number": "21192539032", "name": "JEEVAN SINGH BINAYAGA", "id": "21192539032", "opening_balance": 3922 },
+  { "account_number": "21192539027", "name": "JEEWAN SINGH GURJAR", "id": "21192539027", "opening_balance": 3.65 },
+  { "account_number": "21192539074", "name": "JEPEE CONSTRUCTION", "id": "21192539074", "opening_balance": 1498 },
+  { "account_number": "21192539128", "name": "jila sah samanvayak agar", "id": "21192539128", "opening_balance": 0 },
+  { "account_number": "21192539005", "name": "JILA UDYOG AGAR", "id": "21192539005", "opening_balance": 1638 },
+  { "account_number": "21192539093", "name": "JITENDRA BAIRAGI", "id": "21192539093", "opening_balance": 0 },
+  { "account_number": "21192539145", "name": "K", "id": "21192539145", "opening_balance": 0 },
+  { "account_number": "21192539144", "name": "Kalash Yatra", "id": "21192539144", "opening_balance": 223022.3 },
+  { "account_number": "21192539033", "name": "KAMAL DEVELOPERS", "id": "21192539033", "opening_balance": 5992 },
+  { "account_number": "21192539091", "name": "KAMAL SINGH AWAR", "id": "21192539091", "opening_balance": 47972 },
+  { "account_number": "21192539034", "name": "KARAN MALVIYA", "id": "21192539034", "opening_balance": 600 },
+  { "account_number": "21192539051", "name": "KAVYA & TIWARI ASSOCIATES", "id": "21192539051", "opening_balance": 3622 },
+  { "account_number": "21192539108", "name": "Kedar Ji Ajmera", "id": "21192539108", "opening_balance": 3000 },
+  { "account_number": "21192539119", "name": "KESHAV TRANSPORT NARWAL", "id": "21192539119", "opening_balance": 29044.41 },
+  { "account_number": "21192539043", "name": "KOMAL CONSTRUCTION", "id": "21192539043", "opening_balance": 100001.25 },
+  { "account_number": "21192539137", "name": "Kshema Power India PVT LTD", "id": "21192539137", "opening_balance": 20505.78 },
+  { "account_number": "21192539146", "name": "L", "id": "21192539146", "opening_balance": 0 },
+  { "account_number": "21192539094", "name": "LUV KUSH", "id": "21192539094", "opening_balance": 0 },
+  { "account_number": "21192539147", "name": "M", "id": "21192539147", "opening_balance": 0 },
+  { "account_number": "21192539059", "name": "MAA CHAMUNDA", "id": "21192539059", "opening_balance": 0 },
+  { "account_number": "21192539046", "name": "MADAN SINGH JI NIPANIYA", "id": "21192539046", "opening_balance": 20.0 },
+  { "account_number": "21192539113", "name": "Mahakal Darshan", "id": "21192539113", "opening_balance": -8372 },
+  { "account_number": "21192539022", "name": "MAHENDRA SINGH JI AWAR", "id": "21192539022", "opening_balance": 0 },
+  { "account_number": "21192539076", "name": "MALWA INFRACON", "id": "21192539076", "opening_balance": 0 },
+  { "account_number": "21192539029", "name": "MANISH JI SHARMA KANAD", "id": "21192539029", "opening_balance": 5640 },
+  { "account_number": "21192539134", "name": "MANISH SONI", "id": "21192539134", "opening_balance": 18427.75 },
+  { "account_number": "21192539125", "name": "MEGA GAS", "id": "21192539125", "opening_balance": -236255.86 },
+  { "account_number": "21192539123", "name": "Mitansh Enterprises", "id": "21192539123", "opening_balance": 60179.3 },
+  { "account_number": "21192539089", "name": "MOHANLAL JI YADAV BAPCHA", "id": "21192539089", "opening_balance": 171331.36 },
+  { "account_number": "21192539044", "name": "MOONBRIGHT INFRA", "id": "21192539044", "opening_balance": 0 },
+  { "account_number": "21192539002", "name": "MS Latent Landinfra", "id": "21192539002", "opening_balance": 46.54 },
+  { "account_number": "21192539148", "name": "N", "id": "21192539148", "opening_balance": 0 },
+  { "account_number": "21192539038", "name": "NAGAR PALIKA AGAR", "id": "21192539038", "opening_balance": 2191652.82 },
+  { "account_number": "21192539088", "name": "NAPTOL MADAM", "id": "21192539088", "opening_balance": 4791 },
+  { "account_number": "21192539047", "name": "NARAYAN SINGH DUDH WAHAN", "id": "21192539047", "opening_balance": 0 },
+  { "account_number": "21192539055", "name": "NARAYAN SINGH SOLAR", "id": "21192539055", "opening_balance": 68884.45 },
+  { "account_number": "21192539100", "name": "NATRAJ CONSTRUCTION", "id": "21192539100", "opening_balance": 0 },
+  { "account_number": "21192539142", "name": "Nilesh jain", "id": "21192539142", "opening_balance": 82510.0 },
+  { "account_number": "21192539083", "name": "NILESH JI JAIN", "id": "21192539083", "opening_balance": 0 },
+  { "account_number": "21192539054", "name": "NIRVACHAN AAYOG", "id": "21192539054", "opening_balance": 60587 },
+  { "account_number": "21192539149", "name": "O", "id": "21192539149", "opening_balance": 0 },
+  { "account_number": "21192539006", "name": "OM JI GOYAL", "id": "21192539006", "opening_balance": 69935.19 },
+  { "account_number": "21192539124", "name": "Oyester Green Hybrid", "id": "21192539124", "opening_balance": 98575.35 },
+  { "account_number": "21192539150", "name": "P", "id": "21192539150", "opening_balance": 0 },
+  { "account_number": "21192539045", "name": "PANKAJ JI KOTHARI", "id": "21192539045", "opening_balance": 6184.4 },
+  { "account_number": "21192539048", "name": "PARAS GAWALI", "id": "21192539048", "opening_balance": 14789.66 },
+  { "account_number": "21192539077", "name": "PATIDAR CONSTRUCTION", "id": "21192539077", "opening_balance": 0 },
+  { "account_number": "21192539007", "name": "PHE AGAR", "id": "21192539007", "opening_balance": 231226.73 },
+  { "account_number": "21192539053", "name": "PHONEPE", "id": "21192539053", "opening_balance": 312456.1 },
+  { "account_number": "21192539050", "name": "PINTU SHARMA MP SHASHAN", "id": "21192539050", "opening_balance": 0 },
+  { "account_number": "21192539008", "name": "PIU PWD AGAR", "id": "21192539008", "opening_balance": 84796.87 },
+  { "account_number": "21192539070", "name": "PRAKASH BHAIYA boi", "id": "21192539070", "opening_balance": 14964 },
+  { "account_number": "21192539009", "name": "PRAVIN YADAV JCB", "id": "21192539009", "opening_balance": 29717 },
+  { "account_number": "21192539010", "name": "PRINCE HYUNDAI AGAR", "id": "21192539010", "opening_balance": 4143.17 },
+  { "account_number": "21192539057", "name": "PSH TECHNO ENGG", "id": "21192539057", "opening_balance": -698 },
+  { "account_number": "21192539130", "name": "Raish Bhai", "id": "21192539130", "opening_balance": 0 },
+  { "account_number": "21192539069", "name": "RAJESH JI DUDH DAIRY", "id": "21192539069", "opening_balance": 32942 },
+  { "account_number": "21192539133", "name": "ramesh sultanpura", "id": "21192539133", "opening_balance": 0.55 },
+  { "account_number": "21192539112", "name": "Richi Crane Service", "id": "21192539112", "opening_balance": 90054.89 },
+  { "account_number": "21192539127", "name": "S.K.JAIN", "id": "21192539127", "opening_balance": 0 },
+  { "account_number": "21192539143", "name": "Samir bhai elc", "id": "21192539143", "opening_balance": 3820.88 },
+  { "account_number": "21192539114", "name": "Sanghvi Removeable", "id": "21192539114", "opening_balance": 10041 },
+  { "account_number": "21192539107", "name": "Sanwaliya Wintech Pvt Ltd", "id": "21192539107", "opening_balance": 0 },
+  { "account_number": "21192539061", "name": "SATYALAKSHMI INFRACOM", "id": "21192539061", "opening_balance": 18231 },
+  { "account_number": "21192539028", "name": "SBTF DG", "id": "21192539028", "opening_balance": 45707.8 },
+  { "account_number": "21192539023", "name": "SBTF MP09H0127", "id": "21192539023", "opening_balance": 8593.8 },
+  { "account_number": "21192539031", "name": "SDM COLLECTOR OFFICE", "id": "21192539031", "opening_balance": 2372 },
+  { "account_number": "21192539126", "name": "SDO AGAR SATYALAKSHAMI", "id": "21192539126", "opening_balance": 55222.88 },
+  { "account_number": "21192539012", "name": "SDO WRD AGAR", "id": "21192539012", "opening_balance": 6706 },
+  { "account_number": "21192539117", "name": "Sethiy Company", "id": "21192539117", "opening_balance": 12722 },
+  { "account_number": "21192539037", "name": "SHIV AKYA", "id": "21192539037", "opening_balance": 0 },
+  { "account_number": "21192539014", "name": "SHIV YADAV JCB", "id": "21192539014", "opening_balance": 85647.7 },
+  { "account_number": "21192539015", "name": "SHREE MAYA AGRO AGAR", "id": "21192539015", "opening_balance": 13296 },
+  { "account_number": "21192539058", "name": "SHREYAS CIVIL", "id": "21192539058", "opening_balance": 0 },
+  { "account_number": "21192539078", "name": "SIDDHARTH BHAIYA(HARRIER)", "id": "21192539078", "opening_balance": 95075.1 },
+  { "account_number": "21192539082", "name": "SIMRAN SOLAR ENERGY", "id": "21192539082", "opening_balance": 0 },
+  { "account_number": "21192539098", "name": "SIS COMPANY", "id": "21192539098", "opening_balance": 3000 },
+  { "account_number": "21192539081", "name": "SITARAM JI GURJAR", "id": "21192539081", "opening_balance": 59132.53 },
+  { "account_number": "21192539106", "name": "SK INFRA", "id": "21192539106", "opening_balance": 0 },
+  { "account_number": "21192539079", "name": "SODAN SINGH KHEDA", "id": "21192539079", "opening_balance": 45263.72 },
+  { "account_number": "21192539080", "name": "STC MPBB", "id": "21192539080", "opening_balance": 125818.03 },
+  { "account_number": "21192539116", "name": "Sudeep Jain", "id": "21192539116", "opening_balance": 0 },
+  { "account_number": "21192539105", "name": "SUDIP KOTHARI", "id": "21192539105", "opening_balance": 0 },
+  { "account_number": "21192539141", "name": "Sundar ji yadav", "id": "21192539141", "opening_balance": 16288.8 },
+  { "account_number": "21192539035", "name": "SUNIL JI JINDAL", "id": "21192539035", "opening_balance": 89789.26 },
+  { "account_number": "21192539084", "name": "SUSNER GADI", "id": "21192539084", "opening_balance": 0 },
+  { "account_number": "21192539064", "name": "SUZLON COMPANY", "id": "21192539064", "opening_balance": 20185 },
+  { "account_number": "21192539067", "name": "SYSTEM RENWABLE", "id": "21192539067", "opening_balance": 11308 },
+  { "account_number": "21192539096", "name": "TONY NAWAL", "id": "21192539096", "opening_balance": 0 },
+  { "account_number": "21192539092", "name": "TUSHAR JI JOSHI", "id": "21192539092", "opening_balance": 0 },
+  { "account_number": "21192539111", "name": "UFILL", "id": "21192539111", "opening_balance": 708 },
+  { "account_number": "21192539131", "name": "Vaishnav tour", "id": "21192539131", "opening_balance": 8.47 },
+  { "account_number": "21192539101", "name": "Virendar shing sisodiya", "id": "21192539101", "opening_balance": 0 },
+  { "account_number": "21192539135", "name": "Virendra shing Sisodiya", "id": "21192539135", "opening_balance": 3580 },
+  { "account_number": "21192539039", "name": "VISHNU DAL MILL", "id": "21192539039", "opening_balance": 0 },
+  { "account_number": "21192539068", "name": "YASH TILE", "id": "21192539068", "opening_balance": 0 },
+  { "account_number": "21192539017", "name": "ZSK", "id": "21192539017", "opening_balance": 19216.35 }
 ];
 
 const inr = (n) =>
@@ -926,7 +183,7 @@ const inr = (n) =>
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const emptyDay = (rates) => ({
-  fuel: { petrol: { volume: 0, rate: rates.petrol }, diesel: { volume: 0, rate: rates.diesel }, cng: { volume: 0, rate: rates.cng } },
+  fuel: { petrol: { volume: 0, rate: rates?.petrol || 115.62 }, diesel: { volume: 0, rate: rates?.diesel || 100.66 }, cng: { volume: 0, rate: rates?.cng || 101 } },
   collections: { cashMorning: 0, cashEvening: 0, phonepe: 0, creditCard: 0, otherOnline: 0 },
   expenses: [],
   creditEntries: [],
@@ -1822,47 +1079,115 @@ function AdminTab({ creditors, setCreditors, expenseCategories, setExpenseCatego
   );
 }
 
-// ============ App ============
+// ============ App (Now Integrated with Supabase) ============
 export default function App() {
+  const [isDbLoading, setIsDbLoading] = useState(true);
+  
   const [currentDate, setCurrentDate] = useState(todayStr());
   const [currentRates, setCurrentRates] = useState(DEFAULT_RATES);
-  const [days, setDays] = useState(() => ({ [todayStr()]: emptyDay(DEFAULT_RATES) }));
+  const [days, setDays] = useState({});
   const [tab, setTab] = useState("sales");
-  const [creditors, setCreditors] = useState(CREDITORS_INITIAL);
-  const [expenseCategories, setExpenseCategories] = useState(DEFAULT_EXPENSE_CATEGORIES);
-  const [creditSources, setCreditSources] = useState(DEFAULT_CREDIT_SOURCES);
+  const [creditors, setCreditors] = useState([]);
+  const [expenseCategories, setExpenseCategories] = useState([]);
+  const [creditSources, setCreditSources] = useState([]);
 
-  // Safely assign to window for sub-components without crashing SSR
+  // Database update helper
+  const updateDB = async (column, value) => {
+    await supabase.from('station_data').update({ [column]: value }).eq('id', 1);
+  };
+
+  // 1. Initial Load from Supabase
+  useEffect(() => {
+    async function loadData() {
+      const { data, error } = await supabase.from('station_data').select('*').eq('id', 1).single();
+      
+      if (data) {
+        if (data.days && Object.keys(data.days).length > 0) setDays(data.days);
+        if (data.current_rates && Object.keys(data.current_rates).length > 0) setCurrentRates(data.current_rates);
+        if (data.expense_categories && data.expense_categories.length > 0) setExpenseCategories(data.expense_categories);
+        else setExpenseCategories(DEFAULT_EXPENSE_CATEGORIES);
+        
+        if (data.credit_sources && data.credit_sources.length > 0) setCreditSources(data.credit_sources);
+        else setCreditSources(DEFAULT_CREDIT_SOURCES);
+
+        if (data.creditors && data.creditors.length > 0) {
+          setCreditors(data.creditors);
+        } else {
+          // If DB is totally empty, seed the initial 150 creditors
+          updateDB('creditors', CREDITORS_INITIAL);
+          setCreditors(CREDITORS_INITIAL);
+        }
+      }
+      setIsDbLoading(false);
+    }
+    loadData();
+  }, []);
+
+  // Set window vars for dropdowns
   useEffect(() => {
     if (typeof window !== "undefined") {
-      window.__expenseCategories = expenseCategories;
-      window.__creditSources = creditSources;
+      window.__expenseCategories = expenseCategories.length > 0 ? expenseCategories : DEFAULT_EXPENSE_CATEGORIES;
+      window.__creditSources = creditSources.length > 0 ? creditSources : DEFAULT_CREDIT_SOURCES;
     }
   }, [expenseCategories, creditSources]);
 
+  // 2. Ensure current date exists in state & DB
   useEffect(() => {
-    setDays((prev) => (prev[currentDate] ? prev : { ...prev, [currentDate]: emptyDay(currentRates) }));
-  }, [currentDate, currentRates]);
+    if (!isDbLoading) {
+      setDays((prev) => {
+        if (prev[currentDate]) return prev;
+        const newDays = { ...prev, [currentDate]: emptyDay(currentRates) };
+        updateDB('days', newDays);
+        return newDays;
+      });
+    }
+  }, [currentDate, currentRates, isDbLoading]);
+
+  // 3. Centralized Setters that ALSO update DB
+  const update = (patch) => {
+    setDays((prev) => {
+      const newDays = { ...prev, [currentDate]: { ...(prev[currentDate] || emptyDay(currentRates)), ...patch } };
+      updateDB('days', newDays);
+      return newDays;
+    });
+  };
+
+  const handleSetRate = (fuelKey, val) => {
+    setCurrentRates((prev) => {
+      const next = { ...prev, [fuelKey]: val };
+      updateDB('current_rates', next);
+      return next;
+    });
+  };
+
+  const handleSetCreditors = (newCreds) => { setCreditors(newCreds); updateDB('creditors', newCreds); };
+  const handleSetExpenseCategories = (newCats) => { setExpenseCategories(newCats); updateDB('expense_categories', newCats); };
+  const handleSetCreditSources = (newSrcs) => { setCreditSources(newSrcs); updateDB('credit_sources', newSrcs); };
+
+  if (isDbLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-50">
+        <p className="text-slate-500 font-medium animate-pulse">Syncing with database...</p>
+      </div>
+    );
+  }
 
   const day = days[currentDate] || emptyDay(currentRates);
-  const update = (patch) => setDays((prev) => ({ ...prev, [currentDate]: { ...(prev[currentDate] || emptyDay(currentRates)), ...patch } }));
-  const setRate = (fuelKey, val) => setCurrentRates((prev) => ({ ...prev, [fuelKey]: val }));
-
   const ledger = useMemo(() => computeStockLedger(days), [days]);
   const ledgerRow = ledger[currentDate] || { petrol: { opening: 0, received: 0, sold: 0, closing: 0 }, diesel: { opening: 0, received: 0, sold: 0, closing: 0 } };
   const hasPreviousDay = Object.keys(days).sort().indexOf(currentDate) > 0;
 
-  const creditGivenToday = day.creditEntries.reduce((s, e) => s + e.amount, 0);
-  const paymentsReceivedToday = day.paymentEntries.reduce((s, e) => s + e.amount, 0);
+  const creditGivenToday = day.creditEntries?.reduce((s, e) => s + e.amount, 0) || 0;
+  const paymentsReceivedToday = day.paymentEntries?.reduce((s, e) => s + e.amount, 0) || 0;
 
   const balances = useMemo(() => {
     const map = {};
     creditors.forEach((c) => (map[c.account_number] = c.opening_balance));
     Object.values(days).forEach((d) => {
-      d.creditEntries.forEach((e) => {
+      (d.creditEntries || []).forEach((e) => {
         map[e.accountNumber] = (map[e.accountNumber] ?? 0) + e.amount;
       });
-      d.paymentEntries.forEach((e) => {
+      (d.paymentEntries || []).forEach((e) => {
         map[e.accountNumber] = (map[e.accountNumber] ?? 0) - e.amount;
       });
     });
@@ -1882,29 +1207,35 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white px-4 py-3">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Shree Balaji Tirupati Fuels</p>
-        <div className="mt-1 flex items-center justify-between">
+      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white px-4 py-3 shadow-sm">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-800">Shree Balaji Tirupati Fuels</p>
+          <div className="flex items-center gap-1 text-[10px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            Cloud Synced
+          </div>
+        </div>
+        <div className="mt-2 flex items-center justify-between">
           <h1 className="text-lg font-semibold text-slate-900">{TABS.find((t) => t.key === tab)?.label}</h1>
           {tab !== "admin" && tab !== "analytics" && (
-            <input type="date" value={currentDate} onChange={(e) => setCurrentDate(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-700" />
+            <input type="date" value={currentDate} onChange={(e) => setCurrentDate(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-700 bg-white shadow-sm" />
           )}
         </div>
       </header>
 
       <main className="mx-auto max-w-md px-4 pt-5">
-        {tab === "sales" && <SalesTab day={day} update={update} currentRates={currentRates} setRate={setRate} creditGivenToday={creditGivenToday} paymentsReceivedToday={paymentsReceivedToday} onGoToCredit={() => setTab("credit")} />}
+        {tab === "sales" && <SalesTab day={day} update={update} currentRates={currentRates} setRate={handleSetRate} creditGivenToday={creditGivenToday} paymentsReceivedToday={paymentsReceivedToday} onGoToCredit={() => setTab("credit")} />}
         {tab === "credit" && <CreditTab day={day} update={update} currentRates={currentRates} balances={balances} creditors={creditors} />}
         {tab === "stock" && <StockTab day={day} update={update} ledgerRow={ledgerRow} hasPreviousDay={hasPreviousDay} />}
         {tab === "report" && <ReportTab currentDate={currentDate} day={day} ledgerRow={ledgerRow} creditGivenToday={creditGivenToday} paymentsReceivedToday={paymentsReceivedToday} balances={balances} creditors={creditors} />}
         {tab === "analytics" && <AnalyticsTab days={days} creditors={creditors} balances={balances} />}
-        {tab === "admin" && <AdminTab creditors={creditors} setCreditors={setCreditors} expenseCategories={expenseCategories} setExpenseCategories={setExpenseCategories} creditSources={creditSources} setCreditSources={setCreditSources} currentRates={currentRates} setRate={setRate} />}
+        {tab === "admin" && <AdminTab creditors={creditors} setCreditors={handleSetCreditors} expenseCategories={expenseCategories} setExpenseCategories={handleSetExpenseCategories} creditSources={creditSources} setCreditSources={handleSetCreditSources} currentRates={currentRates} setRate={handleSetRate} />}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white">
+      <nav className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
         <div className="mx-auto grid max-w-md grid-cols-6 text-[10px]">
           {TABS.map((t) => (
-            <button key={t.key} onClick={() => setTab(t.key)} className={`py-3 text-center font-medium ${tab === t.key ? "text-slate-900" : "text-slate-400"}`}>{t.label}</button>
+            <button key={t.key} onClick={() => setTab(t.key)} className={`py-3 text-center font-medium transition-colors ${tab === t.key ? "text-slate-900 bg-slate-50" : "text-slate-400 hover:text-slate-600"}`}>{t.label}</button>
           ))}
         </div>
       </nav>
