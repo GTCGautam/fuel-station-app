@@ -4,9 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 // ============ Database Connection ============
-// Safely using your provided keys to connect directly to Supabase
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://ehayerqftgwwtazlqvjk.supabase.co";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVoYXllcnFmdGd3d3RhemxxdmprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkxMzIyNzUsImV4cCI6MjEwNDcwODI3NX0.i9XZ-kOruflo1MpQFC1AI_iYB4ykLuVpVhVWutFRzaE";
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "sb_publishable_veDZ5P9omnjPQO5vGLwIIA_cwqQwCZu";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // ============ constants ============
@@ -20,7 +19,7 @@ const DEFAULT_EXPENSE_CATEGORIES = ["Diary / staff advance", "Tea & snacks", "Ve
 const DEFAULT_CREDIT_SOURCES = ["Cash", "SBI", "BPCL", "Phonepe SBTF", "Phonepe Siddharth", "Card"];
 const ADMIN_PASSCODE = "1234";
 
-// Initial Creditors List
+// Import 150 creditors from your Accounts Master sheet (embedded at build time)
 const CREDITORS_INITIAL = [
   { "account_number": "21192539001", "name": "100 DIAL", "id": "21192539001", "opening_balance": 764.75 },
   { "account_number": "21192539026", "name": "AADINATH TRANSPORT", "id": "21192539026", "opening_balance": 0 },
@@ -1164,14 +1163,7 @@ export default function App() {
   const handleSetExpenseCategories = (newCats) => { setExpenseCategories(newCats); updateDB('expense_categories', newCats); };
   const handleSetCreditSources = (newSrcs) => { setCreditSources(newSrcs); updateDB('credit_sources', newSrcs); };
 
-  if (isDbLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-slate-50">
-        <p className="text-slate-500 font-medium animate-pulse">Syncing with database...</p>
-      </div>
-    );
-  }
-
+  // ============ HOOKS MUST COME BEFORE EARLY RETURNS ============
   const day = days[currentDate] || emptyDay(currentRates);
   const ledger = useMemo(() => computeStockLedger(days), [days]);
   const ledgerRow = ledger[currentDate] || { petrol: { opening: 0, received: 0, sold: 0, closing: 0 }, diesel: { opening: 0, received: 0, sold: 0, closing: 0 } };
@@ -1195,6 +1187,15 @@ export default function App() {
   }, [days, creditors]);
 
   const totalOutstandingCredit = useMemo(() => Object.values(balances).reduce((s, v) => s + v, 0), [balances]);
+
+  // ============ EARLY RETURN FOR LOADING SCREEN ============
+  if (isDbLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-50">
+        <p className="text-slate-500 font-medium animate-pulse">Syncing with database...</p>
+      </div>
+    );
+  }
 
   const TABS = [
     { key: "sales", label: "Sales" },
