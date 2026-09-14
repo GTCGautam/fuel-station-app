@@ -23,9 +23,9 @@ const TABS = [
   { key: "sales", label: "Sales" },
   { key: "credit", label: "Credit" },
   { key: "stock", label: "Stock" },
-  { key: "ledger", label: "Ledger" }, // <-- NEW TAB
+  { key: "ledger", label: "Ledger" },
   { key: "report", label: "Report" },
-  { key: "analytics", label: "Stats" }, // Renamed slightly to fit mobile screen
+  { key: "analytics", label: "Stats" },
   { key: "admin", label: "Admin" },
 ];
 
@@ -34,7 +34,6 @@ const CREDITORS_INITIAL = [
   { "account_number": "21192539026", "name": "AADINATH TRANSPORT", "id": "21192539026", "opening_balance": 0 },
   { "account_number": "21192539011", "name": "ABHAI JI JOSHI", "id": "21192539011", "opening_balance": 438 },
   { "account_number": "21192539018", "name": "ABHAY JI", "id": "21192539018", "opening_balance": 453202.22 }
-  // Paste your remaining creditors here!
 ];
 
 const inr = (n) => (Number.isFinite(n) ? n : 0).toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
@@ -209,12 +208,10 @@ function SalesTab({ day, update, currentRates, setRate, creditGivenToday, paymen
 function CreditTab({ day, update, currentRates, balances, creditors, isReadOnly }) {
   const [mode, setMode] = useState("give");
   const [customer, setCustomer] = useState(null);
-  
   const [fuelType, setFuelType] = useState("diesel");
   const [isManualRate, setIsManualRate] = useState(false);
   const [manualRate, setManualRate] = useState(0);
   const rate = isManualRate ? manualRate : currentRates[fuelType];
-  
   const [quantity, setQuantity] = useState(0);
   const [remarks, setRemarks] = useState("");
   
@@ -312,34 +309,26 @@ function StockTab({ day, update, ledgerRow, hasPreviousDay, isReadOnly }) {
   );
 }
 
-// ============ NEW: Customer Ledger Tab ============
+// ============ Ledger Tab ============
 function LedgerTab({ days, creditors }) {
   const [customer, setCustomer] = useState(null);
   const [filter, setFilter] = useState("30");
   const [showDetails, setShowDetails] = useState(false);
 
   const allDates = Object.keys(days).sort();
-  
-  // Calculate cut-off date based on filter
   const cutoffDate = useMemo(() => {
     if (filter === "all") return "2000-01-01";
-    const d = new Date();
-    d.setDate(d.getDate() - parseInt(filter));
+    const d = new Date(); d.setDate(d.getDate() - parseInt(filter));
     return d.toISOString().slice(0, 10);
   }, [filter]);
 
-  // Aggregate all transactions for the selected customer chronologically
   const transactions = useMemo(() => {
     if (!customer) return [];
     const txs = [];
     allDates.forEach(date => {
       const d = days[date];
-      (d.creditEntries || []).forEach(e => {
-        if (e.accountNumber === customer.account_number) txs.push({ date, type: 'credit', ...e });
-      });
-      (d.paymentEntries || []).forEach(e => {
-        if (e.accountNumber === customer.account_number) txs.push({ date, type: 'payment', ...e });
-      });
+      (d.creditEntries || []).forEach(e => { if (e.accountNumber === customer.account_number) txs.push({ date, type: 'credit', ...e }); });
+      (d.paymentEntries || []).forEach(e => { if (e.accountNumber === customer.account_number) txs.push({ date, type: 'payment', ...e }); });
     });
     return txs; 
   }, [customer, days, allDates]);
@@ -347,31 +336,19 @@ function LedgerTab({ days, creditors }) {
   const summary = useMemo(() => {
     if (!customer) return null;
     let openingBal = customer.opening_balance || 0;
-    let creditGiven = 0;
-    let paymentsRecv = 0;
-
+    let creditGiven = 0, paymentsRecv = 0;
     transactions.forEach(tx => {
-      if (tx.date < cutoffDate) {
-        if (tx.type === 'credit') openingBal += tx.amount;
-        if (tx.type === 'payment') openingBal -= tx.amount;
-      } else {
-        if (tx.type === 'credit') creditGiven += tx.amount;
-        if (tx.type === 'payment') paymentsRecv += tx.amount;
-      }
+      if (tx.date < cutoffDate) { if (tx.type === 'credit') openingBal += tx.amount; if (tx.type === 'payment') openingBal -= tx.amount; } 
+      else { if (tx.type === 'credit') creditGiven += tx.amount; if (tx.type === 'payment') paymentsRecv += tx.amount; }
     });
-
-    const closingBal = openingBal + creditGiven - paymentsRecv;
-    return { openingBal, creditGiven, paymentsRecv, closingBal };
+    return { openingBal, creditGiven, paymentsRecv, closingBal: openingBal + creditGiven - paymentsRecv };
   }, [customer, transactions, cutoffDate]);
 
   const visibleTxs = useMemo(() => transactions.filter(tx => tx.date >= cutoffDate).reverse(), [transactions, cutoffDate]);
 
   return (
     <div className="space-y-4">
-      <Card title="Customer Account Search">
-         <CustomerPicker value={customer} onChange={(c) => { setCustomer(c); setShowDetails(false); }} creditors={creditors} />
-      </Card>
-
+      <Card title="Customer Account Search"><CustomerPicker value={customer} onChange={(c) => { setCustomer(c); setShowDetails(false); }} creditors={creditors} /></Card>
       {customer && (
         <>
           <div className="flex p-1 bg-slate-200 rounded-lg">
@@ -379,44 +356,23 @@ function LedgerTab({ days, creditors }) {
             <button onClick={() => setFilter("30")} className={`flex-1 rounded-md py-2 text-xs font-bold ${filter === "30" ? "bg-white shadow" : "text-slate-600"}`}>Last 30 Days</button>
             <button onClick={() => setFilter("all")} className={`flex-1 rounded-md py-2 text-xs font-bold ${filter === "all" ? "bg-white shadow" : "text-slate-600"}`}>All Time</button>
           </div>
-
           <Card title="Period Summary">
              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="bg-slate-50 p-2 rounded border border-slate-100">
-                   <p className="text-[10px] uppercase font-bold text-slate-500">Opening Bal</p>
-                   <p className="font-bold text-slate-900">{inr(summary.openingBal)}</p>
-                </div>
-                <div className="bg-red-50 p-2 rounded border border-red-100">
-                   <p className="text-[10px] uppercase font-bold text-red-700">Credit Given</p>
-                   <p className="font-bold text-slate-900">{inr(summary.creditGiven)}</p>
-                </div>
-                <div className="bg-emerald-50 p-2 rounded border border-emerald-100">
-                   <p className="text-[10px] uppercase font-bold text-emerald-700">Payment Recv.</p>
-                   <p className="font-bold text-slate-900">{inr(summary.paymentsRecv)}</p>
-                </div>
-                <div className="bg-slate-900 p-2 rounded">
-                   <p className="text-[10px] uppercase font-bold text-slate-300">Net Due (Closing)</p>
-                   <p className="font-bold text-white">{inr(summary.closingBal)}</p>
-                </div>
+                <div className="bg-slate-50 p-2 rounded border border-slate-100"><p className="text-[10px] uppercase font-bold text-slate-500">Opening Bal</p><p className="font-bold text-slate-900">{inr(summary.openingBal)}</p></div>
+                <div className="bg-red-50 p-2 rounded border border-red-100"><p className="text-[10px] uppercase font-bold text-red-700">Credit Given</p><p className="font-bold text-slate-900">{inr(summary.creditGiven)}</p></div>
+                <div className="bg-emerald-50 p-2 rounded border border-emerald-100"><p className="text-[10px] uppercase font-bold text-emerald-700">Payment Recv.</p><p className="font-bold text-slate-900">{inr(summary.paymentsRecv)}</p></div>
+                <div className="bg-slate-900 p-2 rounded"><p className="text-[10px] uppercase font-bold text-slate-300">Net Due (Closing)</p><p className="font-bold text-white">{inr(summary.closingBal)}</p></div>
              </div>
-             <button onClick={() => setShowDetails(!showDetails)} className="w-full mt-3 border border-slate-300 text-slate-700 font-bold py-2 rounded text-xs">
-                {showDetails ? "Hide Details" : "View Day-Wise Details"}
-             </button>
+             <button onClick={() => setShowDetails(!showDetails)} className="w-full mt-3 border border-slate-300 text-slate-700 font-bold py-2 rounded text-xs">{showDetails ? "Hide Details" : "View Day-Wise Details"}</button>
           </Card>
-
           {showDetails && (
              <Card title="Transaction History">
-                {visibleTxs.length === 0 ? <p className="text-xs text-slate-500 text-center py-4">No transactions found in this period.</p> : (
+                {visibleTxs.length === 0 ? <p className="text-xs text-slate-500 text-center py-4">No transactions found.</p> : (
                   <ul className="divide-y text-xs">
                     {visibleTxs.map((tx, idx) => (
                       <li key={idx} className="py-2 flex justify-between items-center">
-                         <div>
-                            <p className="font-bold text-slate-900">{tx.date}</p>
-                            <p className="text-[10px] text-slate-500 mt-0.5">{tx.type === 'credit' ? `${FUEL_LABEL[tx.fuelType]} (${tx.quantity}L @ ₹${tx.rate})` : `Payment via ${tx.source}`}</p>
-                         </div>
-                         <span className={`font-black ${tx.type === 'credit' ? 'text-red-600' : 'text-emerald-600'}`}>
-                           {tx.type === 'credit' ? '+' : '-'}{inr(tx.amount)}
-                         </span>
+                         <div><p className="font-bold text-slate-900">{tx.date}</p><p className="text-[10px] text-slate-500 mt-0.5">{tx.type === 'credit' ? `${FUEL_LABEL[tx.fuelType]} (${tx.quantity}L @ ₹${tx.rate})` : `Payment via ${tx.source}`}</p></div>
+                         <span className={`font-black ${tx.type === 'credit' ? 'text-red-600' : 'text-emerald-600'}`}>{tx.type === 'credit' ? '+' : '-'}{inr(tx.amount)}</span>
                       </li>
                     ))}
                   </ul>
@@ -530,9 +486,7 @@ function AnalyticsTab({ days, creditors, balances }) {
       </div>
 
       <Card title="Revenue Trend (Selected Period)">
-         <div className="flex justify-between mb-2 text-sm font-black text-slate-900">
-            <span>Rev: {inr(periodTotals.rev)}</span><span>Exp: {inr(periodTotals.exp)}</span>
-         </div>
+         <div className="flex justify-between mb-2 text-sm font-black text-slate-900"><span>Rev: {inr(periodTotals.rev)}</span><span>Exp: {inr(periodTotals.exp)}</span></div>
          <div className="flex h-32 items-end gap-1 mt-4 border-b border-slate-200 pb-1">
             {chartData.map((d, i) => (
                <div key={i} className="flex-1 flex flex-col items-center justify-end h-full group relative">
@@ -555,7 +509,7 @@ function AnalyticsTab({ days, creditors, balances }) {
 }
 
 // ============ Admin Tab ============
-function AdminTab({ days, currentRates, setRate, creditors, setCreditors, expenseCategories, setExpenseCategories, creditSources, setCreditSources }) {
+function AdminTab({ days, setDays, updateDB, currentRates, setRate, creditors, setCreditors, expenseCategories, setExpenseCategories, creditSources, setCreditSources }) {
   const [unlocked, setUnlocked] = useState(false);
   const [passcode, setPasscode] = useState("");
   
@@ -564,7 +518,7 @@ function AdminTab({ days, currentRates, setRate, creditors, setCreditors, expens
   const [newCreditorName, setNewCreditorName] = useState("");
   const [newCreditorBalance, setNewCreditorBalance] = useState("");
   const [bulkImportText, setBulkImportText] = useState("");
-  const [importMode, setImportMode] = useState("add"); 
+  const [importMode, setImportMode] = useState("add");
 
   if (!unlocked) {
     return (
@@ -605,13 +559,73 @@ function AdminTab({ days, currentRates, setRate, creditors, setCreditors, expens
         const [acc, name, bal] = line.split(",").map(s => s.trim());
         return (acc && name) ? { id: acc, account_number: acc, name: name, opening_balance: Number(bal)||0 } : null;
     }).filter(Boolean);
-    
     if (importMode === "replace") setCreditors(imported);
     else {
         const existing = creditors.map(c => c.account_number);
         setCreditors([...creditors, ...imported.filter(i => !existing.includes(i.account_number))]);
     }
     setBulkImportText("");
+  };
+
+  const handleHistoricalCSVUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const csvData = event.target.result;
+      const lines = csvData.split('\n');
+      const newDays = { ...days };
+      let importCount = 0;
+
+      lines.forEach((line, index) => {
+        if (index === 0) return; // Skip header
+        const cols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(s => s.replace(/(^"|"$)/g, '').trim());
+        if (cols.length < 8) return;
+
+        const dateCol = cols[1];
+        const accCol = cols[2];
+        const nameCol = cols[3];
+        const fuelCol = cols[4]?.toUpperCase();
+        const qtyCol = parseFloat(cols[5]);
+        const rateCol = parseFloat(cols[6]);
+        const amtCol = parseFloat(cols[7]);
+
+        if (!dateCol || !accCol || isNaN(qtyCol) || isNaN(rateCol)) return;
+
+        const months = {jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
+        const dParts = dateCol.split('-');
+        if (dParts.length !== 3) return;
+        const dayStr = dParts[0].padStart(2, '0');
+        const monthStr = months[dParts[1].toLowerCase()];
+        const yearStr = "20" + dParts[2];
+        if (!monthStr) return;
+        const isoDate = `${yearStr}-${monthStr}-${dayStr}`;
+
+        let fuelType = 'diesel';
+        if (fuelCol === 'MS') fuelType = 'petrol';
+        if (fuelCol === 'CNG') fuelType = 'cng';
+
+        if (!newDays[isoDate]) newDays[isoDate] = emptyDay(currentRates);
+
+        newDays[isoDate].creditEntries.push({
+          id: Date.now() + Math.random(),
+          customerName: nameCol,
+          accountNumber: accCol,
+          fuelType,
+          quantity: qtyCol,
+          rate: rateCol,
+          amount: amtCol,
+          remarks: "CSV Bulk Import"
+        });
+        importCount++;
+      });
+
+      setDays(newDays);
+      updateDB('days', newDays);
+      alert(`Success! Imported ${importCount} historical sales records.`);
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -634,7 +648,6 @@ function AdminTab({ days, currentRates, setRate, creditors, setCreditors, expens
           <input type="number" value={newCreditorBalance} onChange={e => setNewCreditorBalance(e.target.value)} placeholder="Balance" className="w-20 border rounded p-2 text-sm" />
           <button onClick={addCreditor} className="bg-slate-900 text-white px-3 rounded font-bold">Add</button>
         </div>
-        
         <p className="text-[10px] font-bold text-slate-500 mb-1">BULK IMPORT CSV (Format: acc_num,name,bal)</p>
         <div className="flex gap-2 mb-1">
             <button onClick={() => setImportMode("add")} className={`text-xs px-2 py-1 rounded ${importMode === "add" ? 'bg-slate-900 text-white' : 'border text-slate-500'}`}>Add to existing</button>
@@ -642,6 +655,11 @@ function AdminTab({ days, currentRates, setRate, creditors, setCreditors, expens
         </div>
         <textarea value={bulkImportText} onChange={e => setBulkImportText(e.target.value)} placeholder="21192539001,Customer Name,1500" rows={2} className="w-full border rounded p-2 text-xs font-mono mb-2" />
         <button onClick={bulkImport} className="w-full border border-slate-900 text-slate-900 py-2 text-xs font-bold rounded">Import Batch</button>
+      </Card>
+
+      <Card title="Bulk Historical Data Import (CSV)">
+        <p className="text-xs text-slate-500 mb-2">Upload your <b>Master Daily Sale.csv</b> file directly here to instantly sync all historical fuel transactions.</p>
+        <input type="file" accept=".csv" onChange={handleHistoricalCSVUpload} className="w-full border rounded p-2 text-xs mb-2 bg-slate-50" />
       </Card>
 
       <Card title="Expense Categories">
@@ -780,7 +798,7 @@ export default function App() {
         {tab === "ledger" && <LedgerTab days={days} creditors={creditors} />}
         {tab === "report" && <ReportTab currentDate={currentDate} day={day} ledgerRow={ledgerRow} />}
         {tab === "analytics" && <AnalyticsTab days={days} creditors={creditors} balances={balances} />}
-        {tab === "admin" && <AdminTab days={days} currentRates={currentRates} setRate={handleSetRate} creditors={creditors} setCreditors={c => { setCreditors(c); updateDB('creditors', c); }} expenseCategories={expenseCategories} setExpenseCategories={c => { setExpenseCategories(c); updateDB('expense_categories', c); }} creditSources={creditSources} setCreditSources={c => { setCreditSources(c); updateDB('credit_sources', c); }} />}
+        {tab === "admin" && <AdminTab days={days} setDays={setDays} updateDB={updateDB} currentRates={currentRates} setRate={handleSetRate} creditors={creditors} setCreditors={c => { setCreditors(c); updateDB('creditors', c); }} expenseCategories={expenseCategories} setExpenseCategories={c => { setExpenseCategories(c); updateDB('expense_categories', c); }} creditSources={creditSources} setCreditSources={c => { setCreditSources(c); updateDB('credit_sources', c); }} />}
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 border-t border-slate-200 bg-white shadow-[0_-10px_10px_-5px_rgba(0,0,0,0.05)] print:hidden">
