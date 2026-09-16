@@ -371,7 +371,7 @@ function LedgerTab({ days, creditors }) {
                   <ul className="divide-y text-xs">
                     {visibleTxs.map((tx, idx) => (
                       <li key={idx} className="py-2 flex justify-between items-center">
-                         <div><p className="font-bold text-slate-900">{tx.date}</p><p className="text-[10px] text-slate-500 mt-0.5">{tx.type === 'credit' ? `${FUEL_LABEL[tx.fuelType]} (${tx.quantity}L @ ₹${tx.rate})` : `Payment via ${tx.source}`}</p></div>
+                         <div><p className="font-bold text-slate-900">{tx.date}</p><p className="text-[10px] text-slate-500 mt-0.5">{tx.type === 'credit' ? `${FUEL_LABEL[tx.fuelType] || 'Fuel'} (${tx.quantity}L @ ₹${tx.rate})` : `Payment via ${tx.source || 'Cash'}`}</p></div>
                          <span className={`font-black ${tx.type === 'credit' ? 'text-red-600' : 'text-emerald-600'}`}>{tx.type === 'credit' ? '+' : '-'}{inr(tx.amount)}</span>
                       </li>
                     ))}
@@ -519,6 +519,7 @@ function AdminTab({ days, setDays, updateDB, currentRates, setRate, creditors, s
   const [newCreditorBalance, setNewCreditorBalance] = useState("");
   const [bulkImportText, setBulkImportText] = useState("");
   const [importMode, setImportMode] = useState("add");
+  const [importType, setImportType] = useState("sales"); // NEW: Solves the payments CSV issue
 
   if (!unlocked) {
     return (
@@ -567,6 +568,7 @@ function AdminTab({ days, setDays, updateDB, currentRates, setRate, creditors, s
     setBulkImportText("");
   };
 
+  // SMART IMPORTER: Now handles both Sales and Payments properly
   const handleHistoricalCSVUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -576,54 +578,91 @@ function AdminTab({ days, setDays, updateDB, currentRates, setRate, creditors, s
       const csvData = event.target.result;
       const lines = csvData.split('\n');
       const newDays = { ...days };
+      const newCreditors = [...creditors];
       let importCount = 0;
 
       lines.forEach((line, index) => {
         if (index === 0) return; // Skip header
         const cols = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(s => s.replace(/(^"|"$)/g, '').trim());
-        if (cols.length < 8) return;
+        if (cols.length < 4) return;
 
         const dateCol = cols[1];
         const accCol = cols[2];
         const nameCol = cols[3];
-        const fuelCol = cols[4]?.toUpperCase();
-        const qtyCol = parseFloat(cols[5]);
-        const rateCol = parseFloat(cols[6]);
-        const amtCol = parseFloat(cols[7]);
+        
+        // Flexibly locate the Amount column (usually 7 for Sales, 4 for Payments)
+        let amtCol = parseFloat(cols[7]); 
+        if (isNaN(amtCol)) amtCol = parseFloat(cols[4]);
+        if (isNaN(amtCol) && cols.length > 3) amtCol = parseFloat(cols[cols.length - 1]);
 
-        if (!dateCol || !accCol || isNaN(qtyCol) || isNaN(rateCol)) return;
+        if (!dateCol || !accCol || isNaN(amtCol)) return;
 
         const months = {jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
         const dParts = dateCol.split('-');
         if (dParts.length !== 3) return;
         const dayStr = dParts[0].padStart(2, '0');
         const monthStr = months[dParts[1].toLowerCase()];
-        const yearStr = "20" + dParts[2];
+        const yearStr = "20" + dParts[2].replace('20','');
         if (!monthStr) return;
         const isoDate = `${yearStr}-${monthStr}-${dayStr}`;
 
-        let fuelType = 'diesel';
-        if (fuelCol === 'MS') fuelType = 'petrol';
-        if (fuelCol === 'CNG') fuelType = 'cng';
+        // Ensure customer exists
+        let existingCreditor = newCreditors.find(c => c.account_number === accCol);
+        if (!existingCreditor) {
+            existingCreditor = { id: accCol, account_number: accCol, name: nameCol, opening_balance: 0 };
+            newCreditors.push(existingCreditor);
+        }
+
+        // If it's a 2025 date, automatically apply it to their opening balance instead of logging a fake daily sale!
+        if (isoDate <= "2025-12-31") {
+            if (importType === "sales") {
+               existingCreditor.opening_balance += amtCol;
+            } else {
+               existingCreditor.opening_balance -= amtCol;
+            }
+            importCount++;
+            return;
+        }
 
         if (!newDays[isoDate]) newDays[isoDate] = emptyDay(currentRates);
 
-        newDays[isoDate].creditEntries.push({
-          id: Date.now() + Math.random(),
-          customerName: nameCol,
-          accountNumber: accCol,
-          fuelType,
-          quantity: qtyCol,
-          rate: rateCol,
-          amount: amtCol,
-          remarks: "CSV Bulk Import"
-        });
+        if (importType === "sales") {
+            let fuelType = 'diesel';
+            const fuelCol = cols[4]?.toUpperCase() || '';
+            if (fuelCol === 'MS') fuelType = 'petrol';
+            if (fuelCol === 'CNG') fuelType = 'cng';
+
+            let qtyCol = parseFloat(cols[5]);
+            let rateCol = parseFloat(cols[6]);
+
+            newDays[isoDate].creditEntries.push({
+              id: Date.now() + Math.random(),
+              customerName: nameCol,
+              accountNumber: accCol,
+              fuelType,
+              quantity: isNaN(qtyCol) ? 0 : qtyCol,
+              rate: isNaN(rateCol) ? 0 : rateCol,
+              amount: amtCol,
+              remarks: "CSV Bulk Import"
+            });
+        } else {
+            newDays[isoDate].paymentEntries.push({
+              id: Date.now() + Math.random(),
+              customerName: nameCol,
+              accountNumber: accCol,
+              amount: amtCol,
+              source: "CSV Import",
+              remarks: "Bulk Upload"
+            });
+        }
         importCount++;
       });
 
+      setCreditors(newCreditors);
+      updateDB('creditors', newCreditors);
       setDays(newDays);
       updateDB('days', newDays);
-      alert(`Success! Imported ${importCount} historical sales records.`);
+      alert(`Success! Imported ${importCount} ${importType} records.`);
     };
     reader.readAsText(file);
   };
@@ -658,8 +697,20 @@ function AdminTab({ days, setDays, updateDB, currentRates, setRate, creditors, s
       </Card>
 
       <Card title="Bulk Historical Data Import (CSV)">
-        <p className="text-xs text-slate-500 mb-2">Upload your <b>Master Daily Sale.csv</b> file directly here to instantly sync all historical fuel transactions.</p>
-        <input type="file" accept=".csv" onChange={handleHistoricalCSVUpload} className="w-full border rounded p-2 text-xs mb-2 bg-slate-50" />
+        <p className="text-xs text-slate-500 mb-2">Since CSV files only support one sheet at a time, you must export your Excel Sales and Payments tabs as separate CSV files.</p>
+        
+        <div className="flex gap-2 mb-3 bg-slate-100 p-1 rounded">
+           <button onClick={() => setImportType("sales")} className={`flex-1 py-2 text-xs font-bold rounded ${importType === "sales" ? 'bg-slate-900 text-white' : 'text-slate-600'}`}>1. Import Sales</button>
+           <button onClick={() => setImportType("payments")} className={`flex-1 py-2 text-xs font-bold rounded ${importType === "payments" ? 'bg-slate-900 text-white' : 'text-slate-600'}`}>2. Import Payments</button>
+        </div>
+
+        <input type="file" accept=".csv" onChange={(e) => {
+            if(window.confirm(`Are you sure you want to import this file as ${importType.toUpperCase()}?`)) {
+                handleHistoricalCSVUpload(e);
+            } else {
+                e.target.value = null; // reset if cancelled
+            }
+        }} className="w-full border rounded p-2 text-xs mb-2 bg-slate-50" />
       </Card>
 
       <Card title="Expense Categories">
