@@ -15,7 +15,8 @@ const FUEL_UNIT = { petrol: "L", diesel: "L", cng: "Kg" };
 const FUEL_ACCENT = { petrol: "bg-emerald-600", diesel: "bg-amber-600", cng: "bg-sky-600" };
 const STOCK_FUELS = ["petrol", "diesel"];
 const DEFAULT_RATES = { petrol: 115.62, diesel: 100.66, cng: 101 };
-const DEFAULT_EXPENSE_CATEGORIES = ["Diary / staff advance", "Tea & snacks", "Vehicle entry", "Electricity", "Salary", "Misc"];
+// Removed "Diary" from default expense categories to encourage using the new dedicated Diary feature
+const DEFAULT_EXPENSE_CATEGORIES = ["Tea & snacks", "Vehicle entry", "Electricity", "Salary", "Misc"];
 const DEFAULT_CREDIT_SOURCES = ["Cash", "SBI", "BPCL", "Phonepe SBTF", "Phonepe Siddharth", "Card"];
 const ADMIN_PASSCODE = "1234";
 
@@ -49,6 +50,7 @@ const emptyDay = (rates) => ({
   fuel: { petrol: { volume: 0, rate: rates?.petrol || 115.62 }, diesel: { volume: 0, rate: rates?.diesel || 100.66 }, cng: { volume: 0, rate: rates?.cng || 101 } },
   collections: { cashMorning: 0, cashEvening: 0, phonepe: 0, creditCard: 0, otherOnline: 0 },
   expenses: [],
+  diary: [], // NEW: Dedicated array for Diary deposits
   creditEntries: [],
   paymentEntries: [],
   stock: { openingOverride: { petrol: null, diesel: null }, receiving: [] },
@@ -132,8 +134,15 @@ function CustomerPicker({ value, onChange, creditors, disabled }) {
 function SalesTab({ day, update, currentRates, setRate, creditGivenToday, paymentsReceivedToday, onGoToCredit, isReadOnly }) {
   const totalRevenue = useMemo(() => FUEL_KEYS.reduce((sum, k) => sum + day.fuel[k].volume * day.fuel[k].rate, 0), [day.fuel]);
   const totalCollected = day.collections.cashMorning + day.collections.cashEvening + day.collections.phonepe + day.collections.creditCard + day.collections.otherOnline;
-  const totalExpenses = day.expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
-  const accountedFor = totalCollected + creditGivenToday + totalExpenses;
+  
+  // Separation of Pure Expenses vs Diary
+  const pureExpenses = (day.expenses || []).filter(e => !e.category.toLowerCase().includes('diary'));
+  const legacyDiary = (day.expenses || []).filter(e => e.category.toLowerCase().includes('diary'));
+  
+  const totalActualExpenses = pureExpenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const totalDiary = (day.diary || []).reduce((s, d) => s + (Number(d.amount) || 0), 0) + legacyDiary.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  
+  const accountedFor = totalCollected + creditGivenToday + totalActualExpenses + totalDiary;
   const diff = Math.round((totalRevenue - accountedFor) * 100) / 100;
   const balanced = Math.abs(diff) < 1;
 
@@ -173,9 +182,40 @@ function SalesTab({ day, update, currentRates, setRate, creditGivenToday, paymen
         </div>
       </Card>
 
-      <Card title="Expenses">
+      {/* NEW DIARY CARD */}
+      <Card title="Diary (Bulk Cash Deposits)">
+        <p className="text-[10px] text-slate-500 mb-2">Use this to log bulk cash transfers or deposits, separate from regular expenses.</p>
         <div className="space-y-2">
-          {day.expenses.map((e) => (
+          {/* Combine legacy diary expenses with new diary array for editing */}
+          {legacyDiary.map((e) => (
+             <div key={e.id} className="rounded-lg border border-slate-200 bg-blue-50 p-2">
+                <p className="text-[10px] font-bold text-blue-700 mb-1">Legacy {e.category}</p>
+                <div className="flex gap-2">
+                  <div className="w-1/3"><NumberField disabled={isReadOnly} label="Amt" value={e.amount} onChange={(v) => update({ expenses: day.expenses.map((x) => (x.id === e.id ? { ...x, amount: v } : x)) })} /></div>
+                  <div className="w-2/3">
+                    <span className="mb-1 block text-xs font-semibold text-slate-500">Remarks</span>
+                    <input type="text" disabled={isReadOnly} value={e.remarks} onChange={(ev) => update({ expenses: day.expenses.map((x) => (x.id === e.id ? { ...x, remarks: ev.target.value } : x)) })} className="w-full rounded-lg border border-slate-300 py-2 px-2 text-sm font-semibold outline-none focus:border-slate-900 disabled:bg-slate-100 disabled:opacity-70" />
+                  </div>
+                </div>
+             </div>
+          ))}
+          {(day.diary || []).map((d) => (
+            <div key={d.id} className="flex gap-2 items-center rounded-lg border border-slate-200 bg-blue-50 p-2">
+              <div className="w-1/3"><NumberField disabled={isReadOnly} label="Amount" value={d.amount} onChange={(v) => update({ diary: (day.diary || []).map((x) => (x.id === d.id ? { ...x, amount: v } : x)) })} /></div>
+              <div className="w-2/3">
+                <span className="mb-1 block text-xs font-semibold text-slate-500">Remarks / Person</span>
+                <input type="text" disabled={isReadOnly} value={d.remarks} onChange={(ev) => update({ diary: (day.diary || []).map((x) => (x.id === d.id ? { ...x, remarks: ev.target.value } : x)) })} className="w-full rounded-lg border border-slate-300 py-2 px-2 text-sm font-semibold outline-none focus:border-slate-900 disabled:bg-slate-100 disabled:opacity-70" />
+              </div>
+              {!isReadOnly && <button onClick={() => update({ diary: (day.diary || []).filter((x) => x.id !== d.id) })} className="text-xs text-red-500 font-bold px-2">✕</button>}
+            </div>
+          ))}
+        </div>
+        {!isReadOnly && <button onClick={() => update({ diary: [...(day.diary || []), { id: Date.now(), amount: 0, remarks: "" }] })} className="mt-2 w-full rounded-lg border-2 border-dashed border-blue-300 bg-blue-50 py-2 text-xs font-bold text-blue-700 hover:bg-blue-100">+ Add Diary Deposit</button>}
+      </Card>
+
+      <Card title="Regular Expenses">
+        <div className="space-y-2">
+          {pureExpenses.map((e) => (
             <div key={e.id} className="rounded-lg border border-slate-200 bg-slate-50 p-2">
               <div className="flex items-center gap-2 mb-2">
                 <select disabled={isReadOnly} value={e.category} onChange={(ev) => update({ expenses: day.expenses.map((x) => (x.id === e.id ? { ...x, category: ev.target.value } : x)) })} className="flex-1 rounded border border-slate-300 px-1 py-1 text-xs font-bold text-slate-900 disabled:opacity-70">
@@ -197,7 +237,7 @@ function SalesTab({ day, update, currentRates, setRate, creditGivenToday, paymen
       </Card>
       
       <section className={`rounded-xl border p-3 shadow-sm ${Math.abs(diff) < 1 ? "border-emerald-300 bg-emerald-50" : "border-amber-300 bg-amber-50"}`}>
-        <div className="flex justify-between text-xs font-bold text-slate-600"><span>Colls + Credit + Exp</span><span>{inr(accountedFor)}</span></div>
+        <div className="flex justify-between text-xs font-bold text-slate-600"><span>Colls + Credit + Exp + Diary</span><span>{inr(accountedFor)}</span></div>
         <div className="mt-1 flex justify-between text-xs font-bold text-slate-600"><span>Total Revenue</span><span>{inr(totalRevenue)}</span></div>
         <div className="mt-2 border-t border-black/10 pt-2 text-sm font-black">{Math.abs(diff) < 1 ? <span className="text-emerald-700">Balanced ✓</span> : diff > 0 ? <span className="text-amber-700">{inr(diff)} short</span> : <span className="text-amber-700">{inr(Math.abs(diff))} extra</span>}</div>
       </section>
@@ -267,7 +307,10 @@ function CreditTab({ day, update, currentRates, balances, creditors, isReadOnly 
          <ul className="divide-y text-sm">
            {(mode === "give" ? day.creditEntries : day.paymentEntries).map(e => (
              <li key={e.id} className="py-2 flex justify-between items-center">
-                <div><p className="font-bold text-slate-900">{e.customerName}</p><p className="text-xs text-slate-500">{mode === 'give' ? `${e.quantity}L @ ₹${e.rate}` : e.source}</p></div>
+                <div>
+                   <p className="font-bold text-slate-900">{e.customerName}</p>
+                   <p className="text-xs text-slate-500">{mode === 'give' ? `${e.quantity}L @ ₹${e.rate}` : e.source}</p>
+                </div>
                 <div className="flex gap-3 items-center">
                   <span className={`font-black ${mode === 'give' ? 'text-slate-900' : 'text-emerald-700'}`}>{inr(e.amount)}</span>
                   {!isReadOnly && <button onClick={() => mode === 'give' ? update({ creditEntries: day.creditEntries.filter(x => x.id !== e.id)}) : update({ paymentEntries: day.paymentEntries.filter(x => x.id !== e.id)})} className="text-red-500 font-bold">✕</button>}
@@ -292,23 +335,13 @@ function StockTab({ day, update, ledgerRow, hasPreviousDay, isReadOnly }) {
               <div key={k} className="flex-1 border rounded-lg p-2 bg-slate-50">
                  <p className="font-bold text-slate-800 flex items-center gap-1"><span className={`w-2 h-2 rounded-full ${FUEL_ACCENT[k]}`}></span>{FUEL_LABEL[k]}</p>
                  <div className="mt-2 text-xs font-semibold text-slate-500 space-y-2">
-                   
-                   {/* Editable Opening Stock Field */}
                    <div className="flex justify-between items-center">
                       <span>Open:</span>
-                      <input 
-                        type="number" 
-                        disabled={isReadOnly}
-                        value={day.stock?.openingOverride?.[k] !== null && day.stock?.openingOverride?.[k] !== undefined ? day.stock.openingOverride[k] : ""}
-                        placeholder={ledgerRow[k].opening.toFixed(2)}
-                        onChange={(e) => {
-                           const val = e.target.value;
-                           update({ stock: { ...day.stock, openingOverride: { ...day.stock?.openingOverride, [k]: val === "" ? null : Number(val) } } });
-                        }}
+                      <input type="number" disabled={isReadOnly} value={day.stock?.openingOverride?.[k] !== null && day.stock?.openingOverride?.[k] !== undefined ? day.stock.openingOverride[k] : ""} placeholder={ledgerRow[k].opening.toFixed(2)}
+                        onChange={(e) => { const val = e.target.value; update({ stock: { ...day.stock, openingOverride: { ...day.stock?.openingOverride, [k]: val === "" ? null : Number(val) } } }); }}
                         className="w-16 border border-slate-300 rounded px-1 py-0.5 text-right font-bold text-slate-900 bg-white outline-none focus:border-slate-900 disabled:opacity-50 disabled:bg-slate-100"
                       />
                    </div>
-
                    <div className="flex justify-between"><span>Recv:</span><span className="text-slate-900">{ledgerRow[k].received.toFixed(2)}</span></div>
                    <div className="flex justify-between"><span>Sold:</span><span className="text-slate-900">{ledgerRow[k].sold.toFixed(2)}</span></div>
                  </div>
@@ -327,10 +360,45 @@ function StockTab({ day, update, ledgerRow, hasPreviousDay, isReadOnly }) {
 }
 
 // ============ Ledger Tab ============
-function LedgerTab({ days, creditors }) {
+function LedgerTab({ days, creditors, balances }) {
   const [customer, setCustomer] = useState(null);
   const [filter, setFilter] = useState("30");
   const [showDetails, setShowDetails] = useState(false);
+
+  // Global Ledger Export PDF function
+  const printAllDebtors = () => {
+     const nonZero = creditors.map(c => ({...c, balance: balances[c.account_number] || 0}))
+                              .filter(c => c.balance !== 0)
+                              .sort((a,b) => b.balance - a.balance);
+     const total = nonZero.reduce((s, c) => s + c.balance, 0);
+     const html = `
+       <html><head><title>Credit as on ${todayStr()}</title>
+       <style>
+         body { font-family: sans-serif; padding: 20px; font-size: 12px;}
+         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+         th, td { border: 1px solid #000; padding: 6px; text-align: left; }
+         th { background-color: #e2e8f0; }
+         .right { text-align: right; }
+         .title { text-align: center; margin-bottom: 20px; }
+       </style>
+       </head><body>
+       <div class="title">
+         <h2>Shree Balaji Tirupati Fuels</h2>
+         <h3>Credit Balance Ledger</h3>
+         <p><strong>As on:</strong> ${todayStr()}</p>
+       </div>
+       <table>
+         <tr><th>S.No</th><th>Customer Name</th><th>Account Number</th><th class="right">Net Due (₹)</th></tr>
+         ${nonZero.map((c, i) => `<tr><td>${i+1}</td><td>${c.name}</td><td>${c.account_number}</td><td class="right">${c.balance.toLocaleString('en-IN', {maximumFractionDigits:0})}</td></tr>`).join('')}
+         <tr><th colspan="3" class="right">Total Outstanding Debt</th><th class="right">${total.toLocaleString('en-IN', {maximumFractionDigits:0})}</th></tr>
+       </table>
+       <script>window.onload = () => window.print();</script>
+       </body></html>
+     `;
+     const win = window.open('', '_blank');
+     win.document.write(html);
+     win.document.close();
+  };
 
   const allDates = Object.keys(days).sort();
   const cutoffDate = useMemo(() => {
@@ -365,7 +433,12 @@ function LedgerTab({ days, creditors }) {
 
   return (
     <div className="space-y-4">
+      <div className="flex gap-2 print:hidden mb-2">
+         <button onClick={printAllDebtors} className="w-full bg-slate-900 text-white py-2 rounded-lg font-bold text-sm shadow">🖨️ Download All-Customer Credit PDF</button>
+      </div>
+
       <Card title="Customer Account Search"><CustomerPicker value={customer} onChange={(c) => { setCustomer(c); setShowDetails(false); }} creditors={creditors} /></Card>
+      
       {customer && (
         <>
           <div className="flex p-1 bg-slate-200 rounded-lg">
@@ -406,7 +479,13 @@ function LedgerTab({ days, creditors }) {
 function ReportTab({ currentDate, day, ledgerRow }) {
   const totalRevenue = FUEL_KEYS.reduce((s, k) => s + day.fuel[k].volume * day.fuel[k].rate, 0);
   const totalCollected = day.collections.cashMorning + day.collections.cashEvening + day.collections.phonepe + day.collections.creditCard + day.collections.otherOnline;
-  const totalExpenses = day.expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  
+  const pureExpenses = (day.expenses || []).filter(e => !e.category.toLowerCase().includes('diary'));
+  const legacyDiary = (day.expenses || []).filter(e => e.category.toLowerCase().includes('diary'));
+  
+  const totalActualExpenses = pureExpenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const totalDiary = (day.diary || []).reduce((s, d) => s + (Number(d.amount) || 0), 0) + legacyDiary.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  
   const creditGivenToday = day.creditEntries.reduce((s, e) => s + e.amount, 0);
   const paymentsReceivedToday = day.paymentEntries.reduce((s, e) => s + e.amount, 0);
 
@@ -416,15 +495,16 @@ function ReportTab({ currentDate, day, ledgerRow }) {
       <div id="report-content" className="bg-white p-4 rounded-xl border print:border-none print:p-0 print:text-[11px] print:m-0 w-full">
         <div className="text-center mb-4"><h1 className="text-xl font-black text-slate-900 uppercase">Shree Balaji Tirupati Fuels</h1><p className="font-bold text-slate-600">Daily Operations Report: {currentDate}</p></div>
         
-        <div className="flex gap-2 mb-4">
-          <div className="flex-1 bg-slate-100 p-2 rounded text-center"><p className="text-[10px] font-bold text-slate-500 uppercase">Revenue</p><p className="font-black text-slate-900 text-base">{inr(totalRevenue)}</p></div>
-          <div className="flex-1 bg-slate-100 p-2 rounded text-center"><p className="text-[10px] font-bold text-slate-500 uppercase">Collected</p><p className="font-black text-slate-900 text-base">{inr(totalCollected)}</p></div>
-          <div className="flex-1 bg-slate-100 p-2 rounded text-center"><p className="text-[10px] font-bold text-slate-500 uppercase">Expenses</p><p className="font-black text-slate-900 text-base">{inr(totalExpenses)}</p></div>
+        <div className="grid grid-cols-4 gap-2 mb-4">
+          <div className="bg-slate-100 p-2 rounded text-center"><p className="text-[8px] font-bold text-slate-500 uppercase">Revenue</p><p className="font-black text-slate-900 text-sm">{inr(totalRevenue)}</p></div>
+          <div className="bg-slate-100 p-2 rounded text-center"><p className="text-[8px] font-bold text-slate-500 uppercase">Collected</p><p className="font-black text-slate-900 text-sm">{inr(totalCollected)}</p></div>
+          <div className="bg-slate-100 p-2 rounded text-center"><p className="text-[8px] font-bold text-slate-500 uppercase">Expenses</p><p className="font-black text-slate-900 text-sm">{inr(totalActualExpenses)}</p></div>
+          <div className="bg-blue-50 p-2 rounded border border-blue-100 text-center"><p className="text-[8px] font-bold text-blue-700 uppercase">Diary Dep.</p><p className="font-black text-blue-900 text-sm">{inr(totalDiary)}</p></div>
         </div>
 
         <div className="mb-4 print:break-inside-avoid"><h2 className="font-black text-sm mb-1 text-slate-900 border-b-2 border-slate-900 inline-block">Fuel Sales</h2>
           <table className="w-full text-left mt-2"><thead><tr className="bg-slate-200 text-slate-900 text-xs"><th className="p-1">Fuel</th><th className="p-1">Vol</th><th className="p-1">Rate</th><th className="p-1 text-right">Amount</th></tr></thead><tbody className="text-sm">
-            {FUEL_KEYS.map(k => <tr key={k} className="border-b"><td className="p-1 font-bold">{FUEL_LABEL[k]}</td><td className="p-1 font-black text-slate-900">{day.fuel[k].volume}</td><td className="p-1 font-bold text-slate-900">{day.fuel[k].rate}</td><td className="p-1 text-right font-black text-slate-900">{inr(day.fuel[k].volume * day.fuel[k].rate)}</td></tr>)}
+            {FUEL_KEYS.map(k => <tr key={k} className="border-b"><td className="p-1 font-bold text-slate-900">{FUEL_LABEL[k]}</td><td className="p-1 font-black text-slate-900">{day.fuel[k].volume}</td><td className="p-1 font-bold text-slate-900">{day.fuel[k].rate}</td><td className="p-1 text-right font-black text-slate-900">{inr(day.fuel[k].volume * day.fuel[k].rate)}</td></tr>)}
           </tbody></table>
         </div>
 
@@ -436,17 +516,26 @@ function ReportTab({ currentDate, day, ledgerRow }) {
            </div>
         </div>
 
-        {day.expenses.length > 0 && (
+        {pureExpenses.length > 0 && (
           <div className="mb-4 print:break-inside-avoid"><h2 className="font-black text-sm mb-1 text-slate-900 border-b-2 border-slate-900 inline-block">Expenses Breakdown</h2>
              <table className="w-full text-left mt-2 text-xs"><thead><tr className="bg-slate-200 text-slate-900"><th className="p-1">Category</th><th className="p-1">Remarks</th><th className="p-1 text-right">Amount</th></tr></thead><tbody>
-                 {day.expenses.map(e => <tr key={e.id} className="border-b"><td className="p-1 font-bold text-slate-900">{e.category}</td><td className="p-1 text-slate-600">{e.remarks}</td><td className="p-1 text-right font-black text-slate-900">{inr(e.amount)}</td></tr>)}
+                 {pureExpenses.map(e => <tr key={e.id} className="border-b"><td className="p-1 font-bold text-slate-900">{e.category}</td><td className="p-1 text-slate-600">{e.remarks}</td><td className="p-1 text-right font-black text-slate-900">{inr(e.amount)}</td></tr>)}
+             </tbody></table>
+          </div>
+        )}
+
+        {(day.diary?.length > 0 || legacyDiary.length > 0) && (
+          <div className="mb-4 print:break-inside-avoid"><h2 className="font-black text-sm mb-1 text-blue-900 border-b-2 border-blue-900 inline-block">Diary (Bulk Cash Deposits)</h2>
+             <table className="w-full text-left mt-2 text-xs"><thead><tr className="bg-blue-100 text-blue-900"><th className="p-1">Entry</th><th className="p-1 text-right">Amount</th></tr></thead><tbody>
+                 {legacyDiary.map(e => <tr key={e.id} className="border-b"><td className="p-1 font-bold text-slate-900">Legacy: {e.category} {e.remarks && `(${e.remarks})`}</td><td className="p-1 text-right font-black text-slate-900">{inr(e.amount)}</td></tr>)}
+                 {(day.diary || []).map(d => <tr key={d.id} className="border-b"><td className="p-1 font-bold text-slate-900">{d.remarks || 'Cash Transfer'}</td><td className="p-1 text-right font-black text-slate-900">{inr(d.amount)}</td></tr>)}
              </tbody></table>
           </div>
         )}
 
         <div className="mb-4 print:break-inside-avoid"><h2 className="font-black text-sm mb-1 text-slate-900 border-b-2 border-slate-900 inline-block">Stock Updates</h2>
           <table className="w-full text-left mt-2"><thead><tr className="bg-slate-200 text-slate-900 text-[10px] uppercase"><th className="p-1">Fuel</th><th className="p-1">Open</th><th className="p-1">Recv</th><th className="p-1">Sold</th><th className="p-1 font-black">Close</th></tr></thead><tbody className="text-xs">
-            {STOCK_FUELS.map(k => <tr key={k} className="border-b"><td className="p-1 font-bold">{FUEL_LABEL[k]}</td><td className="p-1 font-bold text-slate-900">{ledgerRow[k].opening.toFixed(2)}</td><td className="p-1 font-bold text-slate-900">{ledgerRow[k].received.toFixed(2)}</td><td className="p-1 font-bold text-slate-900">{ledgerRow[k].sold.toFixed(2)}</td><td className="p-1 font-black text-slate-900">{ledgerRow[k].closing.toFixed(2)}</td></tr>)}
+            {STOCK_FUELS.map(k => <tr key={k} className="border-b"><td className="p-1 font-bold text-slate-900">{FUEL_LABEL[k]}</td><td className="p-1 font-bold text-slate-900">{ledgerRow[k].opening.toFixed(2)}</td><td className="p-1 font-bold text-slate-900">{ledgerRow[k].received.toFixed(2)}</td><td className="p-1 font-bold text-slate-900">{ledgerRow[k].sold.toFixed(2)}</td><td className="p-1 font-black text-slate-900">{ledgerRow[k].closing.toFixed(2)}</td></tr>)}
           </tbody></table>
         </div>
 
@@ -455,12 +544,12 @@ function ReportTab({ currentDate, day, ledgerRow }) {
              <h2 className="font-black text-sm mb-1 text-slate-900 border-b-2 border-slate-900 inline-block">Credit & Payments Log</h2>
              <table className="w-full text-left mt-2 text-xs"><thead><tr className="bg-slate-200 text-slate-900"><th className="p-1">Customer</th><th className="p-1">Type</th><th className="p-1 text-right">Amount</th></tr></thead><tbody>
                  {day.creditEntries.map(e => <tr key={e.id} className="border-b"><td className="p-1 font-bold text-slate-900">{e.customerName}</td><td className="p-1 text-red-700 font-bold">Given</td><td className="p-1 text-right font-black text-slate-900">{inr(e.amount)}</td></tr>)}
-                 {day.paymentEntries.map(e => <tr key={e.id} className="border-b"><td className="p-1 font-bold text-slate-900">{e.customerName}</td><td className="p-1 text-emerald-700 font-bold">Received</td><td className="p-1 text-right font-black text-slate-900">{inr(e.amount)}</td></tr>)}
+                 {day.paymentEntries.map(e => <tr key={e.id} className="border-b"><td className="p-1 font-bold text-slate-900">{e.customerName}</td><td className="p-1 text-emerald-700 font-bold">Received ({e.source || 'Cash'})</td><td className="p-1 text-right font-black text-slate-900">{inr(e.amount)}</td></tr>)}
              </tbody></table>
-             <div className="mt-3 flex justify-between font-black text-xs">
-               <span className="bg-slate-100 px-2 py-1 rounded">Total Credit Given: {inr(creditGivenToday)}</span>
-               <span className="bg-slate-100 px-2 py-1 rounded">Total Received: {inr(paymentsReceivedToday)}</span>
-               <span className="bg-slate-100 px-2 py-1 rounded">Net: {inr(creditGivenToday - paymentsReceivedToday)}</span>
+             <div className="mt-3 flex justify-between font-black text-xs text-slate-900">
+               <span className="bg-slate-100 border border-slate-200 px-2 py-1 rounded">Total Credit Given: {inr(creditGivenToday)}</span>
+               <span className="bg-slate-100 border border-slate-200 px-2 py-1 rounded">Total Received: {inr(paymentsReceivedToday)}</span>
+               <span className="bg-slate-100 border border-slate-200 px-2 py-1 rounded">Net: {inr(creditGivenToday - paymentsReceivedToday)}</span>
              </div>
           </div>
         )}
@@ -471,13 +560,16 @@ function ReportTab({ currentDate, day, ledgerRow }) {
 
 // ============ Analytics Tab ============
 function AnalyticsTab({ days, creditors, balances }) {
-  const [filter, setFilter] = useState("7");
+  const [filter, setFilter] = useState("30");
+  const [customStart, setCustomStart] = useState(todayStr());
+  const [customEnd, setCustomEnd] = useState(todayStr());
   
   const filteredDates = useMemo(() => {
      const sorted = Object.keys(days).sort();
      if (filter === "all") return sorted;
+     if (filter === "custom") return sorted.filter(d => d >= customStart && d <= customEnd);
      return sorted.slice(-Number(filter));
-  }, [days, filter]);
+  }, [days, filter, customStart, customEnd]);
 
   const chartData = useMemo(() => {
      let maxRev = 0;
@@ -495,20 +587,56 @@ function AnalyticsTab({ days, creditors, balances }) {
      filteredDates.forEach(date => {
         const d = days[date];
         rev += FUEL_KEYS.reduce((sum, k) => sum + d.fuel[k].volume * d.fuel[k].rate, 0);
-        exp += d.expenses.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+        exp += (d.expenses || []).filter(e => !e.category.toLowerCase().includes('diary')).reduce((s, e) => s + (Number(e.amount) || 0), 0);
      });
      return { rev, exp };
   }, [days, filteredDates]);
 
+  const periodDiary = useMemo(() => {
+     let total = 0;
+     const entries = [];
+     filteredDates.forEach(date => {
+        const d = days[date];
+        const dailyDiary = d.diary || [];
+        const legacyD = (d.expenses || []).filter(e => e.category.toLowerCase().includes('diary'));
+        
+        [...dailyDiary, ...legacyD].forEach(entry => {
+           if (entry.amount > 0) {
+               total += Number(entry.amount);
+               entries.push({ date: date.slice(5), amount: Number(entry.amount), remarks: entry.remarks || entry.category || 'Bulk Deposit' });
+           }
+        });
+     });
+     return { total, entries };
+  }, [days, filteredDates]);
+
   const topByBalance = useMemo(() => creditors.map(c => ({ ...c, balance: balances[c.account_number] ?? 0 })).sort((a, b) => b.balance - a.balance).slice(0, 10), [creditors, balances]);
 
+  const customerCreditTrend = useMemo(() => {
+     const map = {};
+     filteredDates.forEach(date => {
+        (days[date].creditEntries || []).forEach(e => {
+           map[e.customerName] = (map[e.customerName] || 0) + e.amount;
+        });
+     });
+     return Object.entries(map).map(([name, amount]) => ({name, amount})).sort((a,b) => b.amount - a.amount).slice(0, 10);
+  }, [days, filteredDates]);
+
   return (
-    <div className="space-y-4">
-      <div className="flex p-1 bg-slate-200 rounded-lg">
-        <button onClick={() => setFilter("7")} className={`flex-1 rounded-md py-2 text-xs font-bold ${filter === "7" ? "bg-white shadow" : "text-slate-600"}`}>Last 7 Days</button>
-        <button onClick={() => setFilter("30")} className={`flex-1 rounded-md py-2 text-xs font-bold ${filter === "30" ? "bg-white shadow" : "text-slate-600"}`}>Last 30 Days</button>
-        <button onClick={() => setFilter("all")} className={`flex-1 rounded-md py-2 text-xs font-bold ${filter === "all" ? "bg-white shadow" : "text-slate-600"}`}>All Time</button>
+    <div className="space-y-4 pb-4">
+      <div className="flex flex-wrap p-1 bg-slate-200 rounded-lg gap-1">
+        <button onClick={() => setFilter("7")} className={`flex-1 rounded-md py-2 text-[11px] font-bold ${filter === "7" ? "bg-white shadow text-slate-900" : "text-slate-600"}`}>7 Days</button>
+        <button onClick={() => setFilter("30")} className={`flex-1 rounded-md py-2 text-[11px] font-bold ${filter === "30" ? "bg-white shadow text-slate-900" : "text-slate-600"}`}>30 Days</button>
+        <button onClick={() => setFilter("all")} className={`flex-1 rounded-md py-2 text-[11px] font-bold ${filter === "all" ? "bg-white shadow text-slate-900" : "text-slate-600"}`}>All Time</button>
+        <button onClick={() => setFilter("custom")} className={`flex-1 rounded-md py-2 text-[11px] font-bold ${filter === "custom" ? "bg-white shadow text-slate-900" : "text-slate-600"}`}>Custom</button>
       </div>
+
+      {filter === "custom" && (
+         <div className="flex gap-2">
+           <label className="flex-1"><span className="text-[10px] font-bold text-slate-500">START DATE</span><input type="date" value={customStart} onChange={e=>setCustomStart(e.target.value)} className="w-full rounded p-2 text-xs border outline-none font-bold" /></label>
+           <label className="flex-1"><span className="text-[10px] font-bold text-slate-500">END DATE</span><input type="date" value={customEnd} onChange={e=>setCustomEnd(e.target.value)} className="w-full rounded p-2 text-xs border outline-none font-bold" /></label>
+         </div>
+      )}
 
       <Card title="Revenue Trend (Selected Period)">
          <div className="flex justify-between mb-2 text-sm font-black text-slate-900"><span>Rev: {inr(periodTotals.rev)}</span><span>Exp: {inr(periodTotals.exp)}</span></div>
@@ -524,7 +652,31 @@ function AnalyticsTab({ days, creditors, balances }) {
          {chartData.length === 0 && <p className="text-center text-xs text-slate-400 mt-4">No data in this period.</p>}
       </Card>
 
-      <Card title="Outstanding Debtors (Top 10)">
+      <Card title="Diary Deposits (Selected Period)">
+         <div className="flex justify-between mb-2 text-sm font-black text-slate-900">
+            <span>Total Diary:</span><span className="text-blue-700">{inr(periodDiary.total)}</span>
+         </div>
+         {periodDiary.entries.length > 0 ? (
+             <ul className="divide-y text-xs mt-2 border-t border-slate-100">
+                {periodDiary.entries.map((e, i) => (
+                    <li key={i} className="py-2 flex justify-between">
+                       <span><span className="font-bold">{e.date}</span> <span className="text-slate-500 ml-1">{e.remarks}</span></span>
+                       <span className="font-bold text-slate-900">{inr(e.amount)}</span>
+                    </li>
+                ))}
+             </ul>
+         ) : <p className="text-xs text-slate-500 mt-2">No diary entries found.</p>}
+      </Card>
+
+      <Card title="Top Credit Taken (Selected Period)">
+        {customerCreditTrend.length === 0 ? <p className="text-xs text-slate-500">No credit given in this date range.</p> : (
+            <ul className="divide-y text-sm">
+              {customerCreditTrend.map(c => <li key={c.name} className="py-2 flex justify-between"><span className="font-bold text-slate-800">{c.name}</span><span className="font-black text-slate-900">{inr(c.amount)}</span></li>)}
+            </ul>
+        )}
+      </Card>
+
+      <Card title="Overall Outstanding Debtors (Top 10)">
         <ul className="divide-y text-sm">
           {topByBalance.map(c => <li key={c.account_number} className="py-2 flex justify-between"><span className="font-bold text-slate-800">{c.name}</span><span className="font-black text-red-600">{inr(c.balance)}</span></li>)}
         </ul>
@@ -556,15 +708,16 @@ function AdminTab({ days, setDays, updateDB, currentRates, setRate, creditors, s
   }
 
   const exportData = () => {
-    let csv = "Date,Revenue,MorningCash,EveningCash,PhonePe,Card,TotalCollected,CreditGiven,PaymentsReceived,TotalExpenses\n";
+    let csv = "Date,Revenue,MorningCash,EveningCash,PhonePe,Card,TotalCollected,CreditGiven,PaymentsReceived,TotalExpenses,TotalDiaryDeposits\n";
     Object.keys(days).sort().forEach(date => {
        const d = days[date];
        const rev = FUEL_KEYS.reduce((s, k) => s + d.fuel[k].volume * d.fuel[k].rate, 0);
        const coll = d.collections.cashMorning + d.collections.cashEvening + d.collections.phonepe + d.collections.creditCard + d.collections.otherOnline;
        const cg = d.creditEntries.reduce((s, e) => s + e.amount, 0);
        const pr = d.paymentEntries.reduce((s, e) => s + e.amount, 0);
-       const exp = d.expenses.reduce((s, e) => s + Number(e.amount), 0);
-       csv += `${date},${rev},${d.collections.cashMorning},${d.collections.cashEvening},${d.collections.phonepe},${d.collections.creditCard},${coll},${cg},${pr},${exp}\n`;
+       const exp = (d.expenses || []).filter(e => !e.category.toLowerCase().includes('diary')).reduce((s, e) => s + Number(e.amount), 0);
+       const diaryAmt = (d.diary || []).reduce((s, x) => s + Number(x.amount), 0) + (d.expenses || []).filter(e => e.category.toLowerCase().includes('diary')).reduce((s, e) => s + Number(e.amount), 0);
+       csv += `${date},${rev},${d.collections.cashMorning},${d.collections.cashEvening},${d.collections.phonepe},${d.collections.creditCard},${coll},${cg},${pr},${exp},${diaryAmt}\n`;
     });
     const link = document.createElement("a");
     link.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
@@ -576,10 +729,9 @@ function AdminTab({ days, setDays, updateDB, currentRates, setRate, creditors, s
     let csv = "Date,Category,Amount,Remarks\n";
     Object.keys(days).sort().forEach(date => {
        const d = days[date];
-       (d.expenses || []).forEach(e => {
-          if (e.amount > 0) {
-              csv += `${date},"${e.category}",${e.amount},"${(e.remarks || '').replace(/"/g, '""')}"\n`;
-          }
+       // Regular expenses
+       (d.expenses || []).filter(e => !e.category.toLowerCase().includes('diary')).forEach(e => {
+          if (e.amount > 0) csv += `${date},"${e.category}",${e.amount},"${(e.remarks || '').replace(/"/g, '""')}"\n`;
        });
     });
     const link = document.createElement("a");
@@ -651,6 +803,12 @@ function AdminTab({ days, setDays, updateDB, currentRates, setRate, creditors, s
             newCreditors.push(existingCreditor);
         }
 
+        if (isoDate <= "2025-12-31") {
+            if (importType === "sales") existingCreditor.opening_balance += amtCol;
+            else existingCreditor.opening_balance -= amtCol;
+            importCount++; return;
+        }
+
         if (!newDays[isoDate]) newDays[isoDate] = emptyDay(currentRates);
 
         if (importType === "sales") {
@@ -658,37 +816,18 @@ function AdminTab({ days, setDays, updateDB, currentRates, setRate, creditors, s
             const fuelCol = cols[4]?.toUpperCase() || '';
             if (fuelCol === 'MS') fuelType = 'petrol';
             if (fuelCol === 'CNG') fuelType = 'cng';
-
             let qtyCol = parseFloat(cols[5]);
             let rateCol = parseFloat(cols[6]);
 
-            newDays[isoDate].creditEntries.push({
-              id: Date.now() + Math.random(),
-              customerName: nameCol,
-              accountNumber: accCol,
-              fuelType,
-              quantity: isNaN(qtyCol) ? 0 : qtyCol,
-              rate: isNaN(rateCol) ? 0 : rateCol,
-              amount: amtCol,
-              remarks: "Daily CSV Import"
-            });
+            newDays[isoDate].creditEntries.push({ id: Date.now() + Math.random(), customerName: nameCol, accountNumber: accCol, fuelType, quantity: isNaN(qtyCol) ? 0 : qtyCol, rate: isNaN(rateCol) ? 0 : rateCol, amount: amtCol, remarks: "Daily CSV Import" });
         } else {
-            newDays[isoDate].paymentEntries.push({
-              id: Date.now() + Math.random(),
-              customerName: nameCol,
-              accountNumber: accCol,
-              amount: amtCol,
-              source: "CSV Import",
-              remarks: "Daily CSV Import"
-            });
+            newDays[isoDate].paymentEntries.push({ id: Date.now() + Math.random(), customerName: nameCol, accountNumber: accCol, amount: amtCol, source: "CSV Import", remarks: "Daily CSV Import" });
         }
         importCount++;
       });
 
-      setCreditors(newCreditors);
-      updateDB('creditors', newCreditors);
-      setDays(newDays);
-      updateDB('days', newDays);
+      setCreditors(newCreditors); updateDB('creditors', newCreditors);
+      setDays(newDays); updateDB('days', newDays);
       alert(`Success! Imported ${importCount} ${importType} records.`);
     };
     reader.readAsText(file);
@@ -698,14 +837,10 @@ function AdminTab({ days, setDays, updateDB, currentRates, setRate, creditors, s
     if (window.confirm("WARNING: This will permanently DELETE ALL historical sales and payments from the cloud, and strictly reset every customer's balance to exactly what it was on Sept 15, 2026. Are you 100% sure?")) {
       const resetPass = window.prompt("Type RESET to confirm:");
       if (resetPass === "RESET") {
-         setDays({});
-         updateDB('days', {});
-         setCreditors(CREDITORS_INITIAL);
-         updateDB('creditors', CREDITORS_INITIAL);
+         setDays({}); updateDB('days', {});
+         setCreditors(CREDITORS_INITIAL); updateDB('creditors', CREDITORS_INITIAL);
          alert("Database has been successfully wiped and reset to Sept 15th balances.");
-      } else {
-         alert("Reset cancelled.");
-      }
+      } else { alert("Reset cancelled."); }
     }
   };
 
@@ -720,8 +855,8 @@ function AdminTab({ days, setDays, updateDB, currentRates, setRate, creditors, s
       </Card>
       
       <Card title="Data Export">
-         <button onClick={exportData} className="w-full bg-emerald-600 text-white font-bold py-3 rounded-lg">📥 Download Daily Summary CSV</button>
-         <button onClick={exportExpenses} className="w-full mt-2 bg-rose-600 text-white font-bold py-3 rounded-lg">📥 Download Detailed Expenses CSV</button>
+         <button onClick={exportData} className="w-full bg-emerald-600 text-white font-bold py-3 rounded-lg shadow-sm">📥 Download Daily Summary CSV</button>
+         <button onClick={exportExpenses} className="w-full mt-2 bg-rose-600 text-white font-bold py-3 rounded-lg shadow-sm">📥 Download Detailed Expenses CSV</button>
       </Card>
 
       <Card title={`Customer Management (${creditors.length})`}>
@@ -889,7 +1024,7 @@ export default function App() {
         {tab === "sales" && <SalesTab day={day} update={update} currentRates={currentRates} setRate={handleSetRate} creditGivenToday={day.creditEntries.reduce((s,e)=>s+e.amount,0)} paymentsReceivedToday={day.paymentEntries.reduce((s,e)=>s+e.amount,0)} onGoToCredit={() => setTab("credit")} isReadOnly={isReadOnly} />}
         {tab === "credit" && <CreditTab day={day} update={update} currentRates={currentRates} balances={balances} creditors={creditors} isReadOnly={isReadOnly} />}
         {tab === "stock" && <StockTab day={day} update={update} ledgerRow={ledgerRow} hasPreviousDay={hasPreviousDay} isReadOnly={isReadOnly} />}
-        {tab === "ledger" && <LedgerTab days={days} creditors={creditors} />}
+        {tab === "ledger" && <LedgerTab days={days} creditors={creditors} balances={balances} />}
         {tab === "report" && <ReportTab currentDate={currentDate} day={day} ledgerRow={ledgerRow} />}
         {tab === "analytics" && <AnalyticsTab days={days} creditors={creditors} balances={balances} />}
         {tab === "admin" && <AdminTab days={days} setDays={setDays} updateDB={updateDB} currentRates={currentRates} setRate={handleSetRate} creditors={creditors} setCreditors={c => { setCreditors(c); updateDB('creditors', c); }} expenseCategories={expenseCategories} setExpenseCategories={c => { setExpenseCategories(c); updateDB('expense_categories', c); }} creditSources={creditSources} setCreditSources={c => { setCreditSources(c); updateDB('credit_sources', c); }} />}
