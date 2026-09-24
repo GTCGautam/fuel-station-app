@@ -426,19 +426,35 @@ function CreditTab({ day, update, currentRates, balances, creditors, isReadOnly 
   );
 }
 
-// ============ Stock Tab ============
+/// ============ Stock Tab ============
 function StockTab({ day, update, ledgerRow, hasPreviousDay, isReadOnly }) {
   const [fuel, setFuel] = useState("diesel");
   const [quantity, setQuantity] = useState(0);
   return (
     <div className="space-y-4">
-      <Card title="Stock Status">
+      <Card title="Stock Status (Edit Opening to Override)">
          <div className="flex gap-2">
             {STOCK_FUELS.map(k => (
               <div key={k} className="flex-1 border rounded-lg p-2 bg-slate-50">
                  <p className="font-bold text-slate-800 flex items-center gap-1"><span className={`w-2 h-2 rounded-full ${FUEL_ACCENT[k]}`}></span>{FUEL_LABEL[k]}</p>
-                 <div className="mt-2 text-xs font-semibold text-slate-500 space-y-1">
-                   <div className="flex justify-between"><span>Open:</span><span className="text-slate-900">{ledgerRow[k].opening.toFixed(2)}</span></div>
+                 <div className="mt-2 text-xs font-semibold text-slate-500 space-y-2">
+                   
+                   {/* Editable Opening Stock Field */}
+                   <div className="flex justify-between items-center">
+                      <span>Open:</span>
+                      <input 
+                        type="number" 
+                        disabled={isReadOnly}
+                        value={day.stock?.openingOverride?.[k] !== null && day.stock?.openingOverride?.[k] !== undefined ? day.stock.openingOverride[k] : ""}
+                        placeholder={ledgerRow[k].opening.toFixed(2)}
+                        onChange={(e) => {
+                           const val = e.target.value;
+                           update({ stock: { ...day.stock, openingOverride: { ...day.stock?.openingOverride, [k]: val === "" ? null : Number(val) } } });
+                        }}
+                        className="w-16 border border-slate-300 rounded px-1 py-0.5 text-right font-bold text-slate-900 bg-white outline-none focus:border-slate-900 disabled:opacity-50 disabled:bg-slate-100"
+                      />
+                   </div>
+
                    <div className="flex justify-between"><span>Recv:</span><span className="text-slate-900">{ledgerRow[k].received.toFixed(2)}</span></div>
                    <div className="flex justify-between"><span>Sold:</span><span className="text-slate-900">{ledgerRow[k].sold.toFixed(2)}</span></div>
                  </div>
@@ -450,7 +466,7 @@ function StockTab({ day, update, ledgerRow, hasPreviousDay, isReadOnly }) {
       <Card title="Log Fuel Received">
         <div className="flex gap-2 mb-3">{STOCK_FUELS.map(k => <button key={k} disabled={isReadOnly} onClick={() => setFuel(k)} className={`flex-1 py-1.5 text-xs font-bold rounded border disabled:opacity-50 ${fuel === k ? 'bg-slate-900 text-white' : 'text-slate-600'}`}>{FUEL_LABEL[k]}</button>)}</div>
         <NumberField disabled={isReadOnly} label="Volume Received (L)" value={quantity} onChange={setQuantity} />
-        {!isReadOnly && <button onClick={() => { update({ stock: { ...day.stock, receiving: [{ id: Date.now(), fuel, quantity }, ...day.stock.receiving] }}); setQuantity(0); }} disabled={quantity <= 0} className="mt-3 w-full bg-slate-900 text-white font-bold py-3 rounded-lg disabled:opacity-50">Add to Stock</button>}
+        {!isReadOnly && <button onClick={() => { update({ stock: { ...day.stock, receiving: [{ id: Date.now(), fuel, quantity }, ...(day.stock?.receiving || [])] }}); setQuantity(0); }} disabled={quantity <= 0} className="mt-3 w-full bg-slate-900 text-white font-bold py-3 rounded-lg disabled:opacity-50">Add to Stock</button>}
       </Card>
     </div>
   );
