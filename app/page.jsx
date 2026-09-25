@@ -15,8 +15,7 @@ const FUEL_UNIT = { petrol: "L", diesel: "L", cng: "Kg" };
 const FUEL_ACCENT = { petrol: "bg-emerald-600", diesel: "bg-amber-600", cng: "bg-sky-600" };
 const STOCK_FUELS = ["petrol", "diesel"];
 const DEFAULT_RATES = { petrol: 115.62, diesel: 100.66, cng: 101 };
-// Removed "Diary" from default expense categories to encourage using the new dedicated Diary feature
-const DEFAULT_EXPENSE_CATEGORIES = ["Tea & snacks", "Vehicle entry", "Electricity", "Salary", "Misc"];
+const DEFAULT_EXPENSE_CATEGORIES = ["Diary / staff advance", "Tea & snacks", "Vehicle entry", "Electricity", "Salary", "Misc"];
 const DEFAULT_CREDIT_SOURCES = ["Cash", "SBI", "BPCL", "Phonepe SBTF", "Phonepe Siddharth", "Card"];
 const ADMIN_PASSCODE = "1234";
 
@@ -35,7 +34,7 @@ const CREDITORS_INITIAL = [
   { "account_number": "21192539002", "name": "MS Latent Landinfra", "id": "21192539002", "opening_balance": 47 },
   { "account_number": "21192539003", "name": "BOI LDM 1463", "id": "21192539003", "opening_balance": 77735 },
   { "account_number": "21192539004", "name": "CEO SUSNER", "id": "21192539004", "opening_balance": 63411 }
-  // NOTE: Keep your full 150 customer list intact in your real file!
+  // Note: Keep your real 150+ customer list here in production!
 ];
 
 const inr = (n) => (Number.isFinite(n) ? n : 0).toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
@@ -50,7 +49,7 @@ const emptyDay = (rates) => ({
   fuel: { petrol: { volume: 0, rate: rates?.petrol || 115.62 }, diesel: { volume: 0, rate: rates?.diesel || 100.66 }, cng: { volume: 0, rate: rates?.cng || 101 } },
   collections: { cashMorning: 0, cashEvening: 0, phonepe: 0, creditCard: 0, otherOnline: 0 },
   expenses: [],
-  diary: [], // NEW: Dedicated array for Diary deposits
+  diary: [], 
   creditEntries: [],
   paymentEntries: [],
   stock: { openingOverride: { petrol: null, diesel: null }, receiving: [] },
@@ -135,7 +134,6 @@ function SalesTab({ day, update, currentRates, setRate, creditGivenToday, paymen
   const totalRevenue = useMemo(() => FUEL_KEYS.reduce((sum, k) => sum + day.fuel[k].volume * day.fuel[k].rate, 0), [day.fuel]);
   const totalCollected = day.collections.cashMorning + day.collections.cashEvening + day.collections.phonepe + day.collections.creditCard + day.collections.otherOnline;
   
-  // Separation of Pure Expenses vs Diary
   const pureExpenses = (day.expenses || []).filter(e => !e.category.toLowerCase().includes('diary'));
   const legacyDiary = (day.expenses || []).filter(e => e.category.toLowerCase().includes('diary'));
   
@@ -182,11 +180,9 @@ function SalesTab({ day, update, currentRates, setRate, creditGivenToday, paymen
         </div>
       </Card>
 
-      {/* NEW DIARY CARD */}
       <Card title="Diary (Bulk Cash Deposits)">
         <p className="text-[10px] text-slate-500 mb-2">Use this to log bulk cash transfers or deposits, separate from regular expenses.</p>
         <div className="space-y-2">
-          {/* Combine legacy diary expenses with new diary array for editing */}
           {legacyDiary.map((e) => (
              <div key={e.id} className="rounded-lg border border-slate-200 bg-blue-50 p-2">
                 <p className="text-[10px] font-bold text-blue-700 mb-1">Legacy {e.category}</p>
@@ -475,7 +471,7 @@ function LedgerTab({ days, creditors, balances }) {
   );
 }
 
-// ============ Report Tab ============
+// ============ NEW COMPACT, COLORFUL REPORT TAB ============
 function ReportTab({ currentDate, day, ledgerRow }) {
   const totalRevenue = FUEL_KEYS.reduce((s, k) => s + day.fuel[k].volume * day.fuel[k].rate, 0);
   const totalCollected = day.collections.cashMorning + day.collections.cashEvening + day.collections.phonepe + day.collections.creditCard + day.collections.otherOnline;
@@ -492,67 +488,111 @@ function ReportTab({ currentDate, day, ledgerRow }) {
   return (
     <div className="space-y-4">
       <div className="flex gap-2 print:hidden"><button onClick={() => window.print()} className="flex-1 bg-slate-900 text-white py-2 rounded-lg font-bold text-sm">🖨️ Print / Save PDF</button></div>
-      <div id="report-content" className="bg-white p-4 rounded-xl border print:border-none print:p-0 print:text-[11px] print:m-0 w-full">
-        <div className="text-center mb-4"><h1 className="text-xl font-black text-slate-900 uppercase">Shree Balaji Tirupati Fuels</h1><p className="font-bold text-slate-600">Daily Operations Report: {currentDate}</p></div>
+      
+      <div id="report-content" className="bg-white p-3 rounded-xl border print:border-none print:p-0 print:m-0 w-full text-[10px]">
         
-        <div className="grid grid-cols-4 gap-2 mb-4">
-          <div className="bg-slate-100 p-2 rounded text-center"><p className="text-[8px] font-bold text-slate-500 uppercase">Revenue</p><p className="font-black text-slate-900 text-sm">{inr(totalRevenue)}</p></div>
-          <div className="bg-slate-100 p-2 rounded text-center"><p className="text-[8px] font-bold text-slate-500 uppercase">Collected</p><p className="font-black text-slate-900 text-sm">{inr(totalCollected)}</p></div>
-          <div className="bg-slate-100 p-2 rounded text-center"><p className="text-[8px] font-bold text-slate-500 uppercase">Expenses</p><p className="font-black text-slate-900 text-sm">{inr(totalActualExpenses)}</p></div>
-          <div className="bg-blue-50 p-2 rounded border border-blue-100 text-center"><p className="text-[8px] font-bold text-blue-700 uppercase">Diary Dep.</p><p className="font-black text-blue-900 text-sm">{inr(totalDiary)}</p></div>
+        <div className="text-center mb-3">
+          <h1 className="text-lg font-black text-slate-900 uppercase tracking-wide">Shree Balaji Tirupati Fuels</h1>
+          <p className="font-bold text-slate-600">Daily Operations Report: {currentDate}</p>
+        </div>
+        
+        <div className="grid grid-cols-4 gap-2 mb-3">
+          <div className="bg-sky-50 border border-sky-200 p-1.5 rounded text-center"><p className="text-[8px] font-bold text-sky-700 uppercase">Revenue</p><p className="font-black text-sky-900 text-sm">{inr(totalRevenue)}</p></div>
+          <div className="bg-emerald-50 border border-emerald-200 p-1.5 rounded text-center"><p className="text-[8px] font-bold text-emerald-700 uppercase">Collected</p><p className="font-black text-emerald-900 text-sm">{inr(totalCollected)}</p></div>
+          <div className="bg-rose-50 border border-rose-200 p-1.5 rounded text-center"><p className="text-[8px] font-bold text-rose-700 uppercase">Expenses</p><p className="font-black text-rose-900 text-sm">{inr(totalActualExpenses)}</p></div>
+          <div className="bg-indigo-50 border border-indigo-200 p-1.5 rounded text-center"><p className="text-[8px] font-bold text-indigo-700 uppercase">Diary Dep.</p><p className="font-black text-indigo-900 text-sm">{inr(totalDiary)}</p></div>
         </div>
 
-        <div className="mb-4 print:break-inside-avoid"><h2 className="font-black text-sm mb-1 text-slate-900 border-b-2 border-slate-900 inline-block">Fuel Sales</h2>
-          <table className="w-full text-left mt-2"><thead><tr className="bg-slate-200 text-slate-900 text-xs"><th className="p-1">Fuel</th><th className="p-1">Vol</th><th className="p-1">Rate</th><th className="p-1 text-right">Amount</th></tr></thead><tbody className="text-sm">
-            {FUEL_KEYS.map(k => <tr key={k} className="border-b"><td className="p-1 font-bold text-slate-900">{FUEL_LABEL[k]}</td><td className="p-1 font-black text-slate-900">{day.fuel[k].volume}</td><td className="p-1 font-bold text-slate-900">{day.fuel[k].rate}</td><td className="p-1 text-right font-black text-slate-900">{inr(day.fuel[k].volume * day.fuel[k].rate)}</td></tr>)}
-          </tbody></table>
-        </div>
+        {/* 2-COLUMN GRID FOR PRINT SPACE OPTIMIZATION */}
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3 items-start">
+           
+           {/* === LEFT COLUMN === */}
+           <div className="space-y-3">
+              <div>
+                <h2 className="font-black text-[11px] mb-1 text-sky-900 uppercase border-b-2 border-sky-200 inline-block">Fuel Sales</h2>
+                <table className="w-full text-left mt-1 border border-slate-200">
+                  <thead><tr className="bg-sky-100 text-sky-900 text-[9px] uppercase"><th className="p-1 border-r border-white">Fuel</th><th className="p-1 border-r border-white">Vol</th><th className="p-1 border-r border-white">Rate</th><th className="p-1 text-right">Amount</th></tr></thead>
+                  <tbody>
+                    {FUEL_KEYS.map(k => <tr key={k} className="border-b border-slate-100"><td className="p-1 font-bold text-slate-800">{FUEL_LABEL[k]}</td><td className="p-1 font-black text-slate-900">{day.fuel[k].volume}</td><td className="p-1 font-bold text-slate-700">{day.fuel[k].rate}</td><td className="p-1 text-right font-black text-slate-900">{inr(day.fuel[k].volume * day.fuel[k].rate)}</td></tr>)}
+                  </tbody>
+                </table>
+              </div>
 
-        <div className="mb-4 print:break-inside-avoid"><h2 className="font-black text-sm mb-1 text-slate-900 border-b-2 border-slate-900 inline-block">Collections</h2>
-           <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-xs font-bold text-slate-800">
-             <div className="flex justify-between"><span>Morning Cash:</span><span className="font-black text-slate-900">{inr(day.collections.cashMorning)}</span></div><div className="flex justify-between"><span>Evening Cash:</span><span className="font-black text-slate-900">{inr(day.collections.cashEvening)}</span></div>
-             <div className="flex justify-between"><span>PhonePe:</span><span className="font-black text-slate-900">{inr(day.collections.phonepe)}</span></div><div className="flex justify-between"><span>Card:</span><span className="font-black text-slate-900">{inr(day.collections.creditCard)}</span></div>
-             <div className="flex justify-between"><span>Other:</span><span className="font-black text-slate-900">{inr(day.collections.otherOnline)}</span></div><div className="flex justify-between bg-slate-200 px-1 rounded"><span>Total:</span><span className="font-black text-slate-900">{inr(totalCollected)}</span></div>
+              <div>
+                <h2 className="font-black text-[11px] mb-1 text-emerald-900 uppercase border-b-2 border-emerald-200 inline-block">Collections</h2>
+                <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-1 font-semibold text-slate-700 border border-slate-200 p-1.5 rounded bg-emerald-50/30">
+                  <div className="flex justify-between"><span>Morn. Cash:</span><span className="font-black text-slate-900">{inr(day.collections.cashMorning)}</span></div>
+                  <div className="flex justify-between"><span>Even. Cash:</span><span className="font-black text-slate-900">{inr(day.collections.cashEvening)}</span></div>
+                  <div className="flex justify-between"><span>PhonePe:</span><span className="font-black text-slate-900">{inr(day.collections.phonepe)}</span></div>
+                  <div className="flex justify-between"><span>Card:</span><span className="font-black text-slate-900">{inr(day.collections.creditCard)}</span></div>
+                  <div className="flex justify-between"><span>Other:</span><span className="font-black text-slate-900">{inr(day.collections.otherOnline)}</span></div>
+                  <div className="flex justify-between bg-emerald-200 px-1 rounded text-emerald-900"><span>Total:</span><span className="font-black">{inr(totalCollected)}</span></div>
+                </div>
+              </div>
+
+              {pureExpenses.length > 0 && (
+                <div>
+                  <h2 className="font-black text-[11px] mb-1 text-rose-900 uppercase border-b-2 border-rose-200 inline-block">Expenses</h2>
+                  <table className="w-full text-left mt-1 border border-slate-200">
+                    <thead><tr className="bg-rose-100 text-rose-900 text-[9px] uppercase"><th className="p-1 border-r border-white">Category</th><th className="p-1 border-r border-white">Remarks</th><th className="p-1 text-right">Amount</th></tr></thead>
+                    <tbody>
+                      {pureExpenses.map(e => <tr key={e.id} className="border-b border-slate-100"><td className="p-1 font-bold text-slate-800">{e.category}</td><td className="p-1 text-slate-600 truncate max-w-[80px]">{e.remarks}</td><td className="p-1 text-right font-black text-slate-900">{inr(e.amount)}</td></tr>)}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+           </div>
+
+           {/* === RIGHT COLUMN === */}
+           <div className="space-y-3">
+              <div>
+                <h2 className="font-black text-[11px] mb-1 text-amber-900 uppercase border-b-2 border-amber-200 inline-block">Stock Updates</h2>
+                <table className="w-full text-left mt-1 border border-slate-200">
+                  <thead><tr className="bg-amber-100 text-amber-900 text-[8px] uppercase"><th className="p-1 border-r border-white">Fuel</th><th className="p-1 border-r border-white">Open</th><th className="p-1 border-r border-white">Recv</th><th className="p-1 border-r border-white">Sold</th><th className="p-1 font-black">Close</th></tr></thead>
+                  <tbody>
+                    {STOCK_FUELS.map(k => <tr key={k} className="border-b border-slate-100"><td className="p-1 font-bold text-slate-800">{FUEL_LABEL[k]}</td><td className="p-1 font-bold text-slate-700">{ledgerRow[k].opening.toFixed(2)}</td><td className="p-1 font-bold text-slate-700">{ledgerRow[k].received.toFixed(2)}</td><td className="p-1 font-bold text-slate-700">{ledgerRow[k].sold.toFixed(2)}</td><td className="p-1 font-black text-amber-700">{ledgerRow[k].closing.toFixed(2)}</td></tr>)}
+                  </tbody>
+                </table>
+              </div>
+
+              {(day.diary?.length > 0 || legacyDiary.length > 0) && (
+                <div>
+                  <h2 className="font-black text-[11px] mb-1 text-indigo-900 uppercase border-b-2 border-indigo-200 inline-block">Diary (Bulk Cash Deposits)</h2>
+                  <table className="w-full text-left mt-1 border border-slate-200">
+                     <thead><tr className="bg-indigo-100 text-indigo-900 text-[9px] uppercase"><th className="p-1 border-r border-white">Entry</th><th className="p-1 text-right">Amount</th></tr></thead>
+                     <tbody>
+                       {legacyDiary.map(e => <tr key={e.id} className="border-b border-slate-100"><td className="p-1 font-bold text-slate-800 truncate max-w-[100px]">Legacy: {e.category} {e.remarks && `(${e.remarks})`}</td><td className="p-1 text-right font-black text-slate-900">{inr(e.amount)}</td></tr>)}
+                       {(day.diary || []).map(d => <tr key={d.id} className="border-b border-slate-100"><td className="p-1 font-bold text-slate-800 truncate max-w-[100px]">{d.remarks || 'Cash Transfer'}</td><td className="p-1 text-right font-black text-slate-900">{inr(d.amount)}</td></tr>)}
+                     </tbody>
+                  </table>
+                </div>
+              )}
+
+              {(day.creditEntries.length > 0 || day.paymentEntries.length > 0) && (
+                <div>
+                  <h2 className="font-black text-[11px] mb-1 text-violet-900 uppercase border-b-2 border-violet-200 inline-block">Credit & Payments Log</h2>
+                  <table className="w-full text-left mt-1 border border-slate-200">
+                     <thead><tr className="bg-violet-100 text-violet-900 text-[9px] uppercase"><th className="p-1 border-r border-white">Customer</th><th className="p-1 border-r border-white">Type</th><th className="p-1 text-right">Amount</th></tr></thead>
+                     <tbody>
+                       {day.creditEntries.map(e => <tr key={e.id} className="border-b border-slate-100"><td className="p-1 font-bold text-slate-800 truncate max-w-[80px]">{e.customerName}</td><td className="p-1 text-[9px] text-rose-700 font-bold bg-rose-50">Given</td><td className="p-1 text-right font-black text-slate-900">{inr(e.amount)}</td></tr>)}
+                       {/* Explicit Payment Source in Report */}
+                       {day.paymentEntries.map(e => <tr key={e.id} className="border-b border-slate-100"><td className="p-1 font-bold text-slate-800 truncate max-w-[80px]">{e.customerName}</td><td className="p-1 text-[9px] text-emerald-700 font-bold bg-emerald-50">Recv ({e.source || 'Cash'})</td><td className="p-1 text-right font-black text-slate-900">{inr(e.amount)}</td></tr>)}
+                     </tbody>
+                  </table>
+                  <div className="mt-1.5 flex justify-between font-black text-[9px] text-slate-900">
+                    <span className="bg-rose-100 border border-rose-200 px-1 py-0.5 rounded text-rose-900">Cr Given: {inr(creditGivenToday)}</span>
+                    <span className="bg-emerald-100 border border-emerald-200 px-1 py-0.5 rounded text-emerald-900">Recv: {inr(paymentsReceivedToday)}</span>
+                    <span className="bg-violet-100 border border-violet-200 px-1 py-0.5 rounded text-violet-900">Net: {inr(creditGivenToday - paymentsReceivedToday)}</span>
+                  </div>
+                </div>
+              )}
            </div>
         </div>
-
-        {pureExpenses.length > 0 && (
-          <div className="mb-4 print:break-inside-avoid"><h2 className="font-black text-sm mb-1 text-slate-900 border-b-2 border-slate-900 inline-block">Expenses Breakdown</h2>
-             <table className="w-full text-left mt-2 text-xs"><thead><tr className="bg-slate-200 text-slate-900"><th className="p-1">Category</th><th className="p-1">Remarks</th><th className="p-1 text-right">Amount</th></tr></thead><tbody>
-                 {pureExpenses.map(e => <tr key={e.id} className="border-b"><td className="p-1 font-bold text-slate-900">{e.category}</td><td className="p-1 text-slate-600">{e.remarks}</td><td className="p-1 text-right font-black text-slate-900">{inr(e.amount)}</td></tr>)}
-             </tbody></table>
-          </div>
-        )}
-
-        {(day.diary?.length > 0 || legacyDiary.length > 0) && (
-          <div className="mb-4 print:break-inside-avoid"><h2 className="font-black text-sm mb-1 text-blue-900 border-b-2 border-blue-900 inline-block">Diary (Bulk Cash Deposits)</h2>
-             <table className="w-full text-left mt-2 text-xs"><thead><tr className="bg-blue-100 text-blue-900"><th className="p-1">Entry</th><th className="p-1 text-right">Amount</th></tr></thead><tbody>
-                 {legacyDiary.map(e => <tr key={e.id} className="border-b"><td className="p-1 font-bold text-slate-900">Legacy: {e.category} {e.remarks && `(${e.remarks})`}</td><td className="p-1 text-right font-black text-slate-900">{inr(e.amount)}</td></tr>)}
-                 {(day.diary || []).map(d => <tr key={d.id} className="border-b"><td className="p-1 font-bold text-slate-900">{d.remarks || 'Cash Transfer'}</td><td className="p-1 text-right font-black text-slate-900">{inr(d.amount)}</td></tr>)}
-             </tbody></table>
-          </div>
-        )}
-
-        <div className="mb-4 print:break-inside-avoid"><h2 className="font-black text-sm mb-1 text-slate-900 border-b-2 border-slate-900 inline-block">Stock Updates</h2>
-          <table className="w-full text-left mt-2"><thead><tr className="bg-slate-200 text-slate-900 text-[10px] uppercase"><th className="p-1">Fuel</th><th className="p-1">Open</th><th className="p-1">Recv</th><th className="p-1">Sold</th><th className="p-1 font-black">Close</th></tr></thead><tbody className="text-xs">
-            {STOCK_FUELS.map(k => <tr key={k} className="border-b"><td className="p-1 font-bold text-slate-900">{FUEL_LABEL[k]}</td><td className="p-1 font-bold text-slate-900">{ledgerRow[k].opening.toFixed(2)}</td><td className="p-1 font-bold text-slate-900">{ledgerRow[k].received.toFixed(2)}</td><td className="p-1 font-bold text-slate-900">{ledgerRow[k].sold.toFixed(2)}</td><td className="p-1 font-black text-slate-900">{ledgerRow[k].closing.toFixed(2)}</td></tr>)}
-          </tbody></table>
+        
+        <div className="mt-4 pt-2 border-t border-slate-200 text-center text-[8px] text-slate-400">
+           Generated on {new Date().toLocaleString('en-IN')}
         </div>
 
-        {(day.creditEntries.length > 0 || day.paymentEntries.length > 0) && (
-          <div className="mb-4 print:break-inside-avoid">
-             <h2 className="font-black text-sm mb-1 text-slate-900 border-b-2 border-slate-900 inline-block">Credit & Payments Log</h2>
-             <table className="w-full text-left mt-2 text-xs"><thead><tr className="bg-slate-200 text-slate-900"><th className="p-1">Customer</th><th className="p-1">Type</th><th className="p-1 text-right">Amount</th></tr></thead><tbody>
-                 {day.creditEntries.map(e => <tr key={e.id} className="border-b"><td className="p-1 font-bold text-slate-900">{e.customerName}</td><td className="p-1 text-red-700 font-bold">Given</td><td className="p-1 text-right font-black text-slate-900">{inr(e.amount)}</td></tr>)}
-                 {day.paymentEntries.map(e => <tr key={e.id} className="border-b"><td className="p-1 font-bold text-slate-900">{e.customerName}</td><td className="p-1 text-emerald-700 font-bold">Received ({e.source || 'Cash'})</td><td className="p-1 text-right font-black text-slate-900">{inr(e.amount)}</td></tr>)}
-             </tbody></table>
-             <div className="mt-3 flex justify-between font-black text-xs text-slate-900">
-               <span className="bg-slate-100 border border-slate-200 px-2 py-1 rounded">Total Credit Given: {inr(creditGivenToday)}</span>
-               <span className="bg-slate-100 border border-slate-200 px-2 py-1 rounded">Total Received: {inr(paymentsReceivedToday)}</span>
-               <span className="bg-slate-100 border border-slate-200 px-2 py-1 rounded">Net: {inr(creditGivenToday - paymentsReceivedToday)}</span>
-             </div>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -729,7 +769,6 @@ function AdminTab({ days, setDays, updateDB, currentRates, setRate, creditors, s
     let csv = "Date,Category,Amount,Remarks\n";
     Object.keys(days).sort().forEach(date => {
        const d = days[date];
-       // Regular expenses
        (d.expenses || []).filter(e => !e.category.toLowerCase().includes('diary')).forEach(e => {
           if (e.amount > 0) csv += `${date},"${e.category}",${e.amount},"${(e.remarks || '').replace(/"/g, '""')}"\n`;
        });
@@ -816,6 +855,7 @@ function AdminTab({ days, setDays, updateDB, currentRates, setRate, creditors, s
             const fuelCol = cols[4]?.toUpperCase() || '';
             if (fuelCol === 'MS') fuelType = 'petrol';
             if (fuelCol === 'CNG') fuelType = 'cng';
+
             let qtyCol = parseFloat(cols[5]);
             let rateCol = parseFloat(cols[6]);
 
