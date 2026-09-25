@@ -471,7 +471,7 @@ function LedgerTab({ days, creditors, balances }) {
   );
 }
 
-// ============ NEW COMPACT, COLORFUL REPORT TAB ============
+// ============ NEW COMPACT, RESPONSIVE REPORT TAB ============
 function ReportTab({ currentDate, day, ledgerRow }) {
   const totalRevenue = FUEL_KEYS.reduce((s, k) => s + day.fuel[k].volume * day.fuel[k].rate, 0);
   const totalCollected = day.collections.cashMorning + day.collections.cashEvening + day.collections.phonepe + day.collections.creditCard + day.collections.otherOnline;
@@ -489,29 +489,30 @@ function ReportTab({ currentDate, day, ledgerRow }) {
     <div className="space-y-4">
       <div className="flex gap-2 print:hidden"><button onClick={() => window.print()} className="flex-1 bg-slate-900 text-white py-2 rounded-lg font-bold text-sm">🖨️ Print / Save PDF</button></div>
       
-      <div id="report-content" className="bg-white p-3 rounded-xl border print:border-none print:p-0 print:m-0 w-full text-[10px]">
+      <div id="report-content" className="bg-white p-3 rounded-xl border print:border-none print:p-0 print:m-0 w-full text-[10px] print:text-xs">
         
         <div className="text-center mb-3">
           <h1 className="text-lg font-black text-slate-900 uppercase tracking-wide">Shree Balaji Tirupati Fuels</h1>
           <p className="font-bold text-slate-600">Daily Operations Report: {currentDate}</p>
         </div>
         
-        <div className="grid grid-cols-4 gap-2 mb-3">
-          <div className="bg-sky-50 border border-sky-200 p-1.5 rounded text-center"><p className="text-[8px] font-bold text-sky-700 uppercase">Revenue</p><p className="font-black text-sky-900 text-sm">{inr(totalRevenue)}</p></div>
-          <div className="bg-emerald-50 border border-emerald-200 p-1.5 rounded text-center"><p className="text-[8px] font-bold text-emerald-700 uppercase">Collected</p><p className="font-black text-emerald-900 text-sm">{inr(totalCollected)}</p></div>
-          <div className="bg-rose-50 border border-rose-200 p-1.5 rounded text-center"><p className="text-[8px] font-bold text-rose-700 uppercase">Expenses</p><p className="font-black text-rose-900 text-sm">{inr(totalActualExpenses)}</p></div>
-          <div className="bg-indigo-50 border border-indigo-200 p-1.5 rounded text-center"><p className="text-[8px] font-bold text-indigo-700 uppercase">Diary Dep.</p><p className="font-black text-indigo-900 text-sm">{inr(totalDiary)}</p></div>
+        {/* CSS FIX: 2x2 grid on mobile screens, 1x4 horizontal row on printed PDF */}
+        <div className="grid grid-cols-2 print:grid-cols-4 gap-2 mb-3 print:gap-4">
+          <div className="bg-sky-50 border border-sky-200 p-1.5 rounded text-center flex flex-col justify-center"><p className="text-[8px] print:text-[10px] font-bold text-sky-700 uppercase">Revenue</p><p className="font-black text-sky-900 text-sm print:text-lg">{inr(totalRevenue)}</p></div>
+          <div className="bg-emerald-50 border border-emerald-200 p-1.5 rounded text-center flex flex-col justify-center"><p className="text-[8px] print:text-[10px] font-bold text-emerald-700 uppercase">Collected</p><p className="font-black text-emerald-900 text-sm print:text-lg">{inr(totalCollected)}</p></div>
+          <div className="bg-rose-50 border border-rose-200 p-1.5 rounded text-center flex flex-col justify-center"><p className="text-[8px] print:text-[10px] font-bold text-rose-700 uppercase">Expenses</p><p className="font-black text-rose-900 text-sm print:text-lg">{inr(totalActualExpenses)}</p></div>
+          <div className="bg-indigo-50 border border-indigo-200 p-1.5 rounded text-center flex flex-col justify-center"><p className="text-[8px] print:text-[10px] font-bold text-indigo-700 uppercase">Diary Dep.</p><p className="font-black text-indigo-900 text-sm print:text-lg">{inr(totalDiary)}</p></div>
         </div>
 
-        {/* 2-COLUMN GRID FOR PRINT SPACE OPTIMIZATION */}
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3 items-start">
+        {/* CSS FIX: Stacked as a single vertical column on mobile, Split side-by-side on printed PDF */}
+        <div className="flex flex-col print:flex-row print:justify-between gap-y-4 print:gap-x-8 items-start w-full">
            
            {/* === LEFT COLUMN === */}
-           <div className="space-y-3">
+           <div className="w-full print:w-[48%] space-y-3">
               <div>
-                <h2 className="font-black text-[11px] mb-1 text-sky-900 uppercase border-b-2 border-sky-200 inline-block">Fuel Sales</h2>
+                <h2 className="font-black text-[11px] print:text-xs mb-1 text-sky-900 uppercase border-b-2 border-sky-200 inline-block">Fuel Sales</h2>
                 <table className="w-full text-left mt-1 border border-slate-200">
-                  <thead><tr className="bg-sky-100 text-sky-900 text-[9px] uppercase"><th className="p-1 border-r border-white">Fuel</th><th className="p-1 border-r border-white">Vol</th><th className="p-1 border-r border-white">Rate</th><th className="p-1 text-right">Amount</th></tr></thead>
+                  <thead><tr className="bg-sky-100 text-sky-900 text-[9px] print:text-[10px] uppercase"><th className="p-1 border-r border-white">Fuel</th><th className="p-1 border-r border-white">Vol</th><th className="p-1 border-r border-white">Rate</th><th className="p-1 text-right">Amount</th></tr></thead>
                   <tbody>
                     {FUEL_KEYS.map(k => <tr key={k} className="border-b border-slate-100"><td className="p-1 font-bold text-slate-800">{FUEL_LABEL[k]}</td><td className="p-1 font-black text-slate-900">{day.fuel[k].volume}</td><td className="p-1 font-bold text-slate-700">{day.fuel[k].rate}</td><td className="p-1 text-right font-black text-slate-900">{inr(day.fuel[k].volume * day.fuel[k].rate)}</td></tr>)}
                   </tbody>
@@ -519,8 +520,9 @@ function ReportTab({ currentDate, day, ledgerRow }) {
               </div>
 
               <div>
-                <h2 className="font-black text-[11px] mb-1 text-emerald-900 uppercase border-b-2 border-emerald-200 inline-block">Collections</h2>
-                <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-1 font-semibold text-slate-700 border border-slate-200 p-1.5 rounded bg-emerald-50/30">
+                <h2 className="font-black text-[11px] print:text-xs mb-1 text-emerald-900 uppercase border-b-2 border-emerald-200 inline-block">Collections</h2>
+                {/* CSS FIX: grid-cols-1 on phone prevents overlapping text, grid-cols-2 on print saves space */}
+                <div className="grid grid-cols-1 print:grid-cols-2 gap-x-2 gap-y-1 mt-1 font-semibold text-slate-700 border border-slate-200 p-1.5 rounded bg-emerald-50/30">
                   <div className="flex justify-between"><span>Morn. Cash:</span><span className="font-black text-slate-900">{inr(day.collections.cashMorning)}</span></div>
                   <div className="flex justify-between"><span>Even. Cash:</span><span className="font-black text-slate-900">{inr(day.collections.cashEvening)}</span></div>
                   <div className="flex justify-between"><span>PhonePe:</span><span className="font-black text-slate-900">{inr(day.collections.phonepe)}</span></div>
@@ -532,9 +534,9 @@ function ReportTab({ currentDate, day, ledgerRow }) {
 
               {pureExpenses.length > 0 && (
                 <div>
-                  <h2 className="font-black text-[11px] mb-1 text-rose-900 uppercase border-b-2 border-rose-200 inline-block">Expenses</h2>
+                  <h2 className="font-black text-[11px] print:text-xs mb-1 text-rose-900 uppercase border-b-2 border-rose-200 inline-block">Expenses</h2>
                   <table className="w-full text-left mt-1 border border-slate-200">
-                    <thead><tr className="bg-rose-100 text-rose-900 text-[9px] uppercase"><th className="p-1 border-r border-white">Category</th><th className="p-1 border-r border-white">Remarks</th><th className="p-1 text-right">Amount</th></tr></thead>
+                    <thead><tr className="bg-rose-100 text-rose-900 text-[9px] print:text-[10px] uppercase"><th className="p-1 border-r border-white">Category</th><th className="p-1 border-r border-white">Remarks</th><th className="p-1 text-right">Amount</th></tr></thead>
                     <tbody>
                       {pureExpenses.map(e => <tr key={e.id} className="border-b border-slate-100"><td className="p-1 font-bold text-slate-800">{e.category}</td><td className="p-1 text-slate-600 truncate max-w-[80px]">{e.remarks}</td><td className="p-1 text-right font-black text-slate-900">{inr(e.amount)}</td></tr>)}
                     </tbody>
@@ -544,11 +546,11 @@ function ReportTab({ currentDate, day, ledgerRow }) {
            </div>
 
            {/* === RIGHT COLUMN === */}
-           <div className="space-y-3">
+           <div className="w-full print:w-[48%] space-y-3">
               <div>
-                <h2 className="font-black text-[11px] mb-1 text-amber-900 uppercase border-b-2 border-amber-200 inline-block">Stock Updates</h2>
+                <h2 className="font-black text-[11px] print:text-xs mb-1 text-amber-900 uppercase border-b-2 border-amber-200 inline-block">Stock Updates</h2>
                 <table className="w-full text-left mt-1 border border-slate-200">
-                  <thead><tr className="bg-amber-100 text-amber-900 text-[8px] uppercase"><th className="p-1 border-r border-white">Fuel</th><th className="p-1 border-r border-white">Open</th><th className="p-1 border-r border-white">Recv</th><th className="p-1 border-r border-white">Sold</th><th className="p-1 font-black">Close</th></tr></thead>
+                  <thead><tr className="bg-amber-100 text-amber-900 text-[8px] print:text-[10px] uppercase"><th className="p-1 border-r border-white">Fuel</th><th className="p-1 border-r border-white">Open</th><th className="p-1 border-r border-white">Recv</th><th className="p-1 border-r border-white">Sold</th><th className="p-1 font-black">Close</th></tr></thead>
                   <tbody>
                     {STOCK_FUELS.map(k => <tr key={k} className="border-b border-slate-100"><td className="p-1 font-bold text-slate-800">{FUEL_LABEL[k]}</td><td className="p-1 font-bold text-slate-700">{ledgerRow[k].opening.toFixed(2)}</td><td className="p-1 font-bold text-slate-700">{ledgerRow[k].received.toFixed(2)}</td><td className="p-1 font-bold text-slate-700">{ledgerRow[k].sold.toFixed(2)}</td><td className="p-1 font-black text-amber-700">{ledgerRow[k].closing.toFixed(2)}</td></tr>)}
                   </tbody>
@@ -557,12 +559,12 @@ function ReportTab({ currentDate, day, ledgerRow }) {
 
               {(day.diary?.length > 0 || legacyDiary.length > 0) && (
                 <div>
-                  <h2 className="font-black text-[11px] mb-1 text-indigo-900 uppercase border-b-2 border-indigo-200 inline-block">Diary (Bulk Cash Deposits)</h2>
+                  <h2 className="font-black text-[11px] print:text-xs mb-1 text-indigo-900 uppercase border-b-2 border-indigo-200 inline-block">Diary (Bulk Cash Deposits)</h2>
                   <table className="w-full text-left mt-1 border border-slate-200">
-                     <thead><tr className="bg-indigo-100 text-indigo-900 text-[9px] uppercase"><th className="p-1 border-r border-white">Entry</th><th className="p-1 text-right">Amount</th></tr></thead>
+                     <thead><tr className="bg-indigo-100 text-indigo-900 text-[9px] print:text-[10px] uppercase"><th className="p-1 border-r border-white">Entry</th><th className="p-1 text-right">Amount</th></tr></thead>
                      <tbody>
-                       {legacyDiary.map(e => <tr key={e.id} className="border-b border-slate-100"><td className="p-1 font-bold text-slate-800 truncate max-w-[100px]">Legacy: {e.category} {e.remarks && `(${e.remarks})`}</td><td className="p-1 text-right font-black text-slate-900">{inr(e.amount)}</td></tr>)}
-                       {(day.diary || []).map(d => <tr key={d.id} className="border-b border-slate-100"><td className="p-1 font-bold text-slate-800 truncate max-w-[100px]">{d.remarks || 'Cash Transfer'}</td><td className="p-1 text-right font-black text-slate-900">{inr(d.amount)}</td></tr>)}
+                       {legacyDiary.map(e => <tr key={e.id} className="border-b border-slate-100"><td className="p-1 font-bold text-slate-800 truncate max-w-[100px] print:max-w-[200px]">Legacy: {e.category} {e.remarks && `(${e.remarks})`}</td><td className="p-1 text-right font-black text-slate-900">{inr(e.amount)}</td></tr>)}
+                       {(day.diary || []).map(d => <tr key={d.id} className="border-b border-slate-100"><td className="p-1 font-bold text-slate-800 truncate max-w-[100px] print:max-w-[200px]">{d.remarks || 'Cash Transfer'}</td><td className="p-1 text-right font-black text-slate-900">{inr(d.amount)}</td></tr>)}
                      </tbody>
                   </table>
                 </div>
@@ -570,16 +572,15 @@ function ReportTab({ currentDate, day, ledgerRow }) {
 
               {(day.creditEntries.length > 0 || day.paymentEntries.length > 0) && (
                 <div>
-                  <h2 className="font-black text-[11px] mb-1 text-violet-900 uppercase border-b-2 border-violet-200 inline-block">Credit & Payments Log</h2>
+                  <h2 className="font-black text-[11px] print:text-xs mb-1 text-violet-900 uppercase border-b-2 border-violet-200 inline-block">Credit & Payments Log</h2>
                   <table className="w-full text-left mt-1 border border-slate-200">
-                     <thead><tr className="bg-violet-100 text-violet-900 text-[9px] uppercase"><th className="p-1 border-r border-white">Customer</th><th className="p-1 border-r border-white">Type</th><th className="p-1 text-right">Amount</th></tr></thead>
+                     <thead><tr className="bg-violet-100 text-violet-900 text-[9px] print:text-[10px] uppercase"><th className="p-1 border-r border-white">Customer</th><th className="p-1 border-r border-white">Type</th><th className="p-1 text-right">Amount</th></tr></thead>
                      <tbody>
-                       {day.creditEntries.map(e => <tr key={e.id} className="border-b border-slate-100"><td className="p-1 font-bold text-slate-800 truncate max-w-[80px]">{e.customerName}</td><td className="p-1 text-[9px] text-rose-700 font-bold bg-rose-50">Given</td><td className="p-1 text-right font-black text-slate-900">{inr(e.amount)}</td></tr>)}
-                       {/* Explicit Payment Source in Report */}
-                       {day.paymentEntries.map(e => <tr key={e.id} className="border-b border-slate-100"><td className="p-1 font-bold text-slate-800 truncate max-w-[80px]">{e.customerName}</td><td className="p-1 text-[9px] text-emerald-700 font-bold bg-emerald-50">Recv ({e.source || 'Cash'})</td><td className="p-1 text-right font-black text-slate-900">{inr(e.amount)}</td></tr>)}
+                       {day.creditEntries.map(e => <tr key={e.id} className="border-b border-slate-100"><td className="p-1 font-bold text-slate-800 truncate max-w-[120px] print:max-w-[150px]">{e.customerName}</td><td className="p-1 text-[9px] print:text-[10px] text-rose-700 font-bold bg-rose-50">Given</td><td className="p-1 text-right font-black text-slate-900">{inr(e.amount)}</td></tr>)}
+                       {day.paymentEntries.map(e => <tr key={e.id} className="border-b border-slate-100"><td className="p-1 font-bold text-slate-800 truncate max-w-[120px] print:max-w-[150px]">{e.customerName}</td><td className="p-1 text-[9px] print:text-[10px] text-emerald-700 font-bold bg-emerald-50">Recv ({e.source || 'Cash'})</td><td className="p-1 text-right font-black text-slate-900">{inr(e.amount)}</td></tr>)}
                      </tbody>
                   </table>
-                  <div className="mt-1.5 flex justify-between font-black text-[9px] text-slate-900">
+                  <div className="mt-1.5 flex justify-between font-black text-[9px] print:text-[11px] text-slate-900">
                     <span className="bg-rose-100 border border-rose-200 px-1 py-0.5 rounded text-rose-900">Cr Given: {inr(creditGivenToday)}</span>
                     <span className="bg-emerald-100 border border-emerald-200 px-1 py-0.5 rounded text-emerald-900">Recv: {inr(paymentsReceivedToday)}</span>
                     <span className="bg-violet-100 border border-violet-200 px-1 py-0.5 rounded text-violet-900">Net: {inr(creditGivenToday - paymentsReceivedToday)}</span>
@@ -589,7 +590,7 @@ function ReportTab({ currentDate, day, ledgerRow }) {
            </div>
         </div>
         
-        <div className="mt-4 pt-2 border-t border-slate-200 text-center text-[8px] text-slate-400">
+        <div className="mt-4 pt-2 border-t border-slate-200 text-center text-[8px] text-slate-400 print:mt-8">
            Generated on {new Date().toLocaleString('en-IN')}
         </div>
 
@@ -1048,7 +1049,8 @@ export default function App() {
         </div>
       </header>
 
-      <main onTouchStart={onTouchStartEvent} onTouchMove={onTouchMoveEvent} onTouchEnd={onTouchEndEvent} className="mx-auto max-w-md p-3 min-h-[70vh]">
+      {/* CSS FIX: print:max-w-none print:w-full allows report to stretch fully only when printing */}
+      <main onTouchStart={onTouchStartEvent} onTouchMove={onTouchMoveEvent} onTouchEnd={onTouchEndEvent} className="mx-auto max-w-md print:max-w-none print:w-full p-3 print:p-0 min-h-[70vh]">
         
         {isPastDate && ["sales", "credit", "stock"].includes(tab) && (
            <div className="bg-amber-100 text-amber-900 p-2 rounded-lg text-[10px] font-bold flex justify-between items-center mb-3 shadow-sm print:hidden">
